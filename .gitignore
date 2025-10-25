@@ -8,3 +8,5 @@ Logs/
 UserSettings/
 *.apk
 *.aab
+db.sqlite3
+.env
