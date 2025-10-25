@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+Library/
+Temp/
+Build/
+Logs/
+UserSettings/
+*.apk
+*.aab
