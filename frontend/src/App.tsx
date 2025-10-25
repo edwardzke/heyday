@@ -1,25 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import "./index.css";
+import { Dashboard } from "./views/Dashboard";
+import { LandingPage } from "./views/LandingPage";
 
-const API_URL = import.meta.env.VITE_API_URL;
+type AppView = "landing" | "dashboard";
 
-async function fetchMessage() {
-  const res = await fetch(`${API_URL}/hello/`);
-  const data = await res.json();
-  console.log(data);
+export interface AppProps {
+  initialView?: AppView;
 }
 
-export function App() {
-  const [msg, setMsg] = useState("");
+function resolveView(initialView?: AppView): AppView {
+  const path =
+    typeof window !== "undefined" ? window.location.pathname : "/";
+  const pathView: AppView = path.startsWith("/dashboard") ? "dashboard" : "landing";
 
-  useEffect(() => {
-    fetch(`${API_URL}/hello/`)
-      .then((res) => res.json())
-      .then((data) => setMsg(data.message))
-      .catch((err) => console.error("Fetch error:", err));
-  }, []);
+  if (initialView === "dashboard" || pathView === "dashboard") {
+    return "dashboard";
+  }
 
-  return <h1>{msg || "Loading..."}</h1>;
+  return "landing";
+}
+
+export function App({ initialView }: AppProps) {
+  const view = resolveView(initialView);
+
+  if (view === "dashboard") {
+    return <Dashboard />;
+  }
+
+  return <LandingPage />;
 }
 
 export default App;
