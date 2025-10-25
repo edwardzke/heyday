@@ -1,4 +1,64 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
+
+type WeatherResponse = {
+  location: string;
+  description: string;
+  temperature: number | null;
+  feels_like: number | null;
+  humidity: number | null;
+  wind_speed: number | null;
+  icon: string | null;
+  sunrise: number | null;
+  sunset: number | null;
+  timestamp: number | null;
+  timezone_offset: number | null;
+  units: string;
+  resolved_at: string;
+};
+
+function formatTemperature(value: number | null, units: string) {
+  if (value === null || Number.isNaN(value)) {
+    return "—";
+  }
+
+  const suffix = units === "metric" ? "°C" : units === "imperial" ? "°F" : "K";
+  return `${Math.round(value)}${suffix}`;
+}
+
+function formatWindSpeed(speed: number | null, units: string) {
+  if (speed === null || Number.isNaN(speed)) {
+    return "—";
+  }
+  const suffix = units === "metric" ? "m/s" : units === "imperial" ? "mph" : "m/s";
+  return `${Math.round(speed)} ${suffix}`;
+}
+
+function formatDate(date: Date, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat(undefined, options).format(date);
+}
+
+function formatSunEvent(
+  unix: number | null,
+  offset: number | null,
+  label: string
+) {
+  if (!unix) {
+    return `${label}: —`;
+  }
+  const timezoneOffset = offset ?? 0;
+  const date = new Date((unix + timezoneOffset) * 1000);
+  return `${label}: ${formatDate(date, {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
+function resolveWeatherIcon(iconCode: string | null) {
+  if (!iconCode) {
+    return null;
+  }
+  return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+}
 
 export function Dashboard() {
   const plantTasks = [
@@ -6,20 +66,6 @@ export function Dashboard() {
     { id: 2, name: "Rotate monstera toward the window", status: "Today" },
     { id: 3, name: "Check soil moisture for snake plant", status: "Tomorrow" },
     { id: 4, name: "Fertilize pothos cuttings", status: "Friday" },
-  ];
-
-  const weatherNow = {
-    temperature: "72°",
-    condition: "Partly sunny",
-    humidity: "61%",
-    wind: "4 mph E",
-  };
-
-  const weeklyWeather = [
-    { day: "Mon", icon: "🌤", high: "75°", low: "64°" },
-    { day: "Tue", icon: "🌧", high: "68°", low: "60°" },
-    { day: "Wed", icon: "⛅️", high: "70°", low: "61°" },
-    { day: "Thu", icon: "🌦", high: "66°", low: "58°" },
   ];
 
   const plantMetrics = [
@@ -34,6 +80,93 @@ export function Dashboard() {
     "Repotting window for fiddle leaf fig",
     "Quarterly soil refresh for herbs",
   ];
+
+  const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [weatherError, setWeatherError] = useState<string>("");
+  const [weatherLoading, setWeatherLoading] = useState<boolean>(true);
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const intervalId = window.setInterval(tick, 1000);
+    tick();
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function fetchWeather() {
+      try {
+        setWeatherLoading(true);
+        setWeatherError("");
+        const response = await fetch("/api/weather/", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          const message =
+            errorBody?.detail ||
+            `Failed to load weather data (status ${response.status}).`;
+          throw new Error(message);
+        }
+
+        const body = (await response.json()) as WeatherResponse;
+        setWeather(body);
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return;
+        }
+        setWeatherError((error as Error).message);
+      } finally {
+        setWeatherLoading(false);
+      }
+    }
+
+    fetchWeather();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  const formattedTime = useMemo(
+    () =>
+      formatDate(now, {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    [now]
+  );
+
+  const formattedDate = useMemo(
+    () =>
+      formatDate(now, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    [now]
+  );
+
+  const weatherHighlights = useMemo(() => {
+    if (!weather) {
+      return [];
+    }
+
+    return [
+      formatSunEvent(weather.sunrise, weather.timezone_offset, "Sunrise"),
+      formatSunEvent(weather.sunset, weather.timezone_offset, "Sunset"),
+      `Humidity: ${
+        weather.humidity !== null ? `${weather.humidity}%` : "—"
+      }`,
+      `Wind: ${formatWindSpeed(weather.wind_speed, weather.units)}`,
+    ];
+  }, [weather]);
+
+  const weatherIconSrc = resolveWeatherIcon(weather?.icon ?? null);
 
   return (
     <div className="dashboard">
@@ -81,43 +214,63 @@ export function Dashboard() {
             <p className="subtitle">Dashboard</p>
             <h2 className="page-title">Greenhouse overview</h2>
           </div>
-          <button className="button" type="button">
-            Sync devices
-          </button>
+          <div className="time-panel">
+            <p className="current-time">{formattedTime}</p>
+            <p className="current-date">{formattedDate}</p>
+          </div>
         </header>
 
         <section className="cards-grid primary-grid">
           <article className="card weather-card">
             <h3 className="card-title">Local weather</h3>
-            <div className="weather-now">
-              <div>
-                <p className="temperature">{weatherNow.temperature}</p>
-                <p className="condition">{weatherNow.condition}</p>
+            {weatherLoading ? (
+              <div className="weather-loading" aria-live="polite">
+                <div className="spinner" aria-hidden="true" />
+                <p>Fetching weather…</p>
               </div>
-              <dl className="weather-metrics">
-                <div>
-                  <dt>Humidity</dt>
-                  <dd>{weatherNow.humidity}</dd>
+            ) : weatherError ? (
+              <div className="weather-error" role="alert">
+                <p>{weatherError}</p>
+              </div>
+            ) : weather ? (
+              <>
+                <div className="weather-now">
+                  <div>
+                    <p className="temperature">
+                      {formatTemperature(weather.temperature, weather.units)}
+                    </p>
+                    <p className="condition">
+                      {weather.description || "Current conditions"}
+                    </p>
+                    {weather.feels_like !== null && (
+                      <p className="feels-like">
+                        Feels like{" "}
+                        {formatTemperature(weather.feels_like, weather.units)}
+                      </p>
+                    )}
+                    <p className="location">{weather.location}</p>
+                  </div>
+                  <div className="weather-icon-wrapper" aria-hidden="true">
+                    {weatherIconSrc ? (
+                      <img
+                        className="weather-icon"
+                        src={weatherIconSrc}
+                        alt=""
+                      />
+                    ) : (
+                      <div className="weather-icon-fallback">⛅️</div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <dt>Wind</dt>
-                  <dd>{weatherNow.wind}</dd>
-                </div>
-              </dl>
-            </div>
-            <ul className="forecast">
-              {weeklyWeather.map((entry) => (
-                <li key={entry.day}>
-                  <span className="forecast-day">{entry.day}</span>
-                  <span className="forecast-icon" role="img" aria-label="weather">
-                    {entry.icon}
-                  </span>
-                  <span className="forecast-temp">
-                    {entry.high} / {entry.low}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                <ul className="weather-highlights">
+                  {weatherHighlights.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="weather-error">Weather data is unavailable.</p>
+            )}
           </article>
 
           <article className="card metrics-card">
@@ -163,7 +316,8 @@ export function Dashboard() {
           <article className="card placeholder-card">
             <h3 className="card-title">Plant journal</h3>
             <p className="placeholder-text">
-              Daily notes, photo uploads, and milestone tracking will appear here.
+              Daily notes, photo uploads, and milestone tracking will appear
+              here.
             </p>
           </article>
 
@@ -177,7 +331,8 @@ export function Dashboard() {
           <article className="card placeholder-card">
             <h3 className="card-title">Upcoming deliveries</h3>
             <p className="placeholder-text">
-              Nutrient orders, planter shipments, and soil restocks will surface here.
+              Nutrient orders, planter shipments, and soil restocks will surface
+              here.
             </p>
           </article>
         </section>

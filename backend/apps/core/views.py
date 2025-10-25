@@ -2,9 +2,12 @@
 import json
 from pathlib import Path
 
+import httpx
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -25,6 +28,75 @@ def health_check(_request):
 
 def hello(request):
     return JsonResponse({"message": "Heyday backend is running!"})
+
+
+@api_view(["GET"])
+def weather(request):
+    """Proxy current weather data from OpenWeather."""
+    api_key = getattr(settings, "OPENWEATHER_API_KEY", "")
+    if not api_key:
+        return Response(
+            {"detail": "OpenWeather API key is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    units = request.query_params.get("units") or getattr(
+        settings, "OPENWEATHER_UNITS", "imperial"
+    )
+    lat = request.query_params.get("lat")
+    lon = request.query_params.get("lon")
+    location = request.query_params.get("city") or getattr(
+        settings, "OPENWEATHER_DEFAULT_LOCATION", "San Francisco,US"
+    )
+
+    params: dict[str, str] = {"appid": api_key, "units": units}
+    if lat and lon:
+        params.update({"lat": lat, "lon": lon})
+    else:
+        params["q"] = location
+
+    try:
+        with httpx.Client(timeout=5) as client:
+            weather_response = client.get(
+                "https://api.openweathermap.org/data/2.5/weather", params=params
+            )
+            weather_response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code
+        detail = exc.response.json().get("message", "Upstream error")
+        return Response(
+            {"detail": f"OpenWeather error: {detail}"},
+            status=status_code,
+        )
+    except httpx.HTTPError as exc:
+        return Response(
+            {"detail": f"OpenWeather request failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    payload = weather_response.json()
+    current_weather = payload.get("weather", [{}])[0]
+    main = payload.get("main", {})
+    wind = payload.get("wind", {})
+    sys_info = payload.get("sys", {})
+
+    formatted = {
+        "location": payload.get("name") or location,
+        "description": (current_weather.get("description") or "").title(),
+        "temperature": main.get("temp"),
+        "feels_like": main.get("feels_like"),
+        "humidity": main.get("humidity"),
+        "wind_speed": wind.get("speed"),
+        "icon": current_weather.get("icon"),
+        "sunrise": sys_info.get("sunrise"),
+        "sunset": sys_info.get("sunset"),
+        "timestamp": payload.get("dt"),
+        "timezone_offset": payload.get("timezone"),
+        "units": units,
+        "resolved_at": timezone.now().isoformat(),
+    }
+
+    return Response(formatted)
 
 
 def _resolve_frontend_assets() -> dict:

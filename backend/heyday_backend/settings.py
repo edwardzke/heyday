@@ -16,6 +16,12 @@ FRONTEND_DEV_SERVER_ORIGIN = os.environ.get(
     "FRONTEND_DEV_SERVER_ORIGIN", "http://localhost:5173"
 )
 
+OPENWEATHER_API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
+OPENWEATHER_DEFAULT_LOCATION = os.environ.get(
+    "OPENWEATHER_DEFAULT_LOCATION", "San Francisco,US"
+)
+OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1"]
