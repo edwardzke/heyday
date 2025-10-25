@@ -4,17 +4,25 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import sys
+from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 APPS_DIR = BASE_DIR / "apps"
 if str(APPS_DIR) not in sys.path:
     sys.path.append(str(APPS_DIR))
 
+load_dotenv(BASE_DIR.parent / ".env")
+
+
+
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 FRONTEND_DEV_SERVER_ORIGIN = os.environ.get(
     "FRONTEND_DEV_SERVER_ORIGIN", "http://localhost:5173"
 )
+
+
 
 OPENWEATHER_API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
 OPENWEATHER_DEFAULT_LOCATION = os.environ.get(
