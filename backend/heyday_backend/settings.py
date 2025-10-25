@@ -10,6 +10,12 @@ APPS_DIR = BASE_DIR / "apps"
 if str(APPS_DIR) not in sys.path:
     sys.path.append(str(APPS_DIR))
 
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
+FRONTEND_DEV_SERVER_ORIGIN = os.environ.get(
+    "FRONTEND_DEV_SERVER_ORIGIN", "http://localhost:5173"
+)
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1"]
@@ -81,6 +87,8 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+if (FRONTEND_DIST_DIR / "assets").exists():
+    STATICFILES_DIRS.append(FRONTEND_DIST_DIR)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

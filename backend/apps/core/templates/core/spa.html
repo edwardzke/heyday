@@ -1,0 +1,25 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heyday Mobile Companion</title>
+    {% if assets.mode == "build" %}
+      {% for css_href in assets.css %}
+        <link rel="stylesheet" href="{{ css_href }}" />
+      {% endfor %}
+    {% endif %}
+  </head>
+  <body class="bg-slate-950 text-slate-200">
+    <div id="root" data-view="{{ initial_view|default:'landing' }}"></div>
+    {% if assets.mode == "dev" %}
+      <script type="module" src="{{ assets.dev_server }}/@vite/client"></script>
+      <script type="module" src="{{ assets.dev_server }}/src/main.tsx"></script>
+    {% else %}
+      {% for js_href in assets.js %}
+        <script type="module" src="{{ js_href }}"></script>
+      {% endfor %}
+    {% endif %}
+  </body>
+</html>
