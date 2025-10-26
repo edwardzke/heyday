@@ -21,13 +21,11 @@ def upload_photo(request):
 
 @csrf_exempt
 def classify_plant(request):
-    print("classify_plant called")
     if request.method != "POST" or "photo" not in request.FILES:
         return JsonResponse({"error": "No photo uploaded"}, status=400)
 
     api_key = os.getenv("PLANTNET_API_KEY", "")
-    print(api_key)
-    print("got api key")
+
     if not api_key:
         return JsonResponse({"error": "PlantNet API key not configured"}, status=500)
     photo = request.FILES["photo"]
@@ -38,6 +36,7 @@ def classify_plant(request):
     )
 
     if response.status_code != 200:
+        print("WTF NO PLANT")
         return JsonResponse({"error": "Failed to classify plant"}, status=500)
 
     data = response.json()

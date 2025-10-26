@@ -11,7 +11,7 @@ export default function CameraPage() {
   const [loading, setLoading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const BACKEND_URL = "https://bd196c080b30.ngrok-free.app/upload/classify/";
+  const BACKEND_URL = "https://6140210fa1a4.ngrok-free.app/upload/classify/";
 
 
   useEffect(() => {
@@ -67,8 +67,18 @@ export default function CameraPage() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error(`Server error ${response.status}`);
-      const data = await response.json();
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (err) {
+        throw new Error("Invalid JSON returned from server");
+      }
+
+      if (!response.ok || data.error) {
+        const message = data?.error || `Server error ${response.status}`;
+        setResult(`⚠️ ${message}`);
+        return;
+      }
 
       if (data.class) {
         setResult(
