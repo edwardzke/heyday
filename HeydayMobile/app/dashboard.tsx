@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Link } from 'expo-router';
 
 const DASHBOARD_URL = 'https://app.heyday.so/dashboard';
-const MENU_WIDTH = 280;
+const MENU_WIDTH = 320;
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -157,7 +157,7 @@ export default function DashboardScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: insets.top,
+              paddingTop: insets.top - 16,
               paddingBottom: fabBottom + 8,
             },
           ]}
@@ -240,25 +240,44 @@ export default function DashboardScreen() {
             },
           ]}
         >
-          <Text style={styles.sideMenuTitle}>To-do sync</Text>
-          <Text style={styles.cardSubtitle}>
-            Linked to your web dashboard tasks
-          </Text>
-          <ScrollView
-            style={styles.sideMenuList}
-            showsVerticalScrollIndicator={false}
-          >
-            {todoItems.map((item) => (
+          <Text style={styles.sideMenuTitle}>Menu</Text>
+          <View style={styles.sideMenuList}>
+            {[
+              {
+                id: 'profile',
+                label: 'User profile',
+                description: 'Edit personal info and avatar.',
+              },
+              {
+                id: 'account',
+                label: 'Account details',
+                description: 'Manage email, password, and sign-in devices.',
+              },
+              {
+                id: 'settings',
+                label: 'Settings',
+                description: 'Adjust notifications and integrations.',
+              },
+              {
+                id: 'preferences',
+                label: 'Preferences',
+                description: 'Tune themes and accessibility options.',
+              },
+            ].map((item) => (
               <TouchableOpacity
                 key={item.id}
-                onPress={openWebDashboard}
+                accessibilityRole="button"
+                onPress={() =>
+                  Alert.alert(item.label, 'Coming soon to mobile! Visit the web dashboard for full controls.')
+                }
                 style={styles.menuTodoItem}
               >
-                <Text style={styles.menuTodoTitle}>{item.title}</Text>
-                <Text style={styles.menuTodoDetail}>{item.detail}</Text>
+                <Text style={styles.menuTodoTitle}>{item.label}</Text>
+                <Text style={styles.menuTodoDetail}>{item.description}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
+          {/*
           <TouchableOpacity
             accessibilityRole="button"
             onPress={openWebDashboard}
@@ -266,10 +285,11 @@ export default function DashboardScreen() {
           >
             <Text style={styles.menuCTALabel}>Open on web</Text>
           </TouchableOpacity>
+          */}
         </Animated.View>
 
         <View
-          style={[styles.topBar, { top: insets.top - 108, height: topBarHeight }]}
+          style={[styles.topBar, { top: -48, height: topBarHeight }]}
         >
           {/*
           <TouchableOpacity
@@ -308,14 +328,14 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* MOVED: Camera button outside container */}
+      {/* Camera button - Truly standalone, direct child of SafeAreaView */}
       <Link href="/camerapage" asChild>
         <TouchableOpacity
           accessibilityRole="button"
           activeOpacity={0.9}
-          style={[styles.bottomFab, { bottom: fabBottom + 20 }]}
+          style={styles.bottomFab}
         >
-          <Text style={styles.fabLabel}>AR</Text>
+          <Text style={styles.fabLabel}>📷</Text>
         </TouchableOpacity>
       </Link>
     </SafeAreaView>
@@ -542,11 +562,12 @@ const styles = StyleSheet.create({
   },
   bottomFab: {
     position: 'absolute',
-    right: 20,
-    width: 70, // Changed from: stretch
-    height: 46, // Proper height
-    borderRadius: 28, // Pill shape
-    backgroundColor: '#0b4d26', // Change this for color
+    right: 40,
+    bottom: 40,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#0b4d26',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0b4d26',
@@ -554,13 +575,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 18,
     elevation: 6,
-    zIndex: 40,
+    zIndex: 50, // Higher than everything
   },
   fabLabel: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '600',
     color: '#f5f7f4',
-    letterSpacing: 1,
   },
   sideMenu: {
     position: 'absolute',
