@@ -36,7 +36,6 @@ def classify_plant(request):
     )
 
     if response.status_code != 200:
-        print("WTF NO PLANT")
         return JsonResponse({"error": "Failed to classify plant"}, status=500)
 
     data = response.json()
