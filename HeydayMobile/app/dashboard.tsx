@@ -12,12 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const DASHBOARD_URL = 'https://app.heyday.so/dashboard';
 const MENU_WIDTH = 320;
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTranslateX = useRef(new Animated.Value(MENU_WIDTH)).current;
@@ -329,15 +330,14 @@ export default function DashboardScreen() {
       </View>
 
       {/* Camera button - Truly standalone, direct child of SafeAreaView */}
-      <Link href="/camerapage" asChild>
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.9}
-          style={styles.bottomFab}
-        >
-          <Text style={styles.fabLabel}>📷</Text>
-        </TouchableOpacity>
-      </Link>
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.9}
+        style={styles.bottomFab}
+        onPress={() => router.push('/camerapage')}
+      >
+        <Text style={styles.fabLabel}>📷</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

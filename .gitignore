@@ -15,3 +15,4 @@ package-lock.json
 .venv/
 render.yaml
 backend/Procfile
+package-lock.json

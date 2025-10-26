@@ -10,10 +10,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../lib/supabase';
 
 export default function AddPlantScreen() {
   const router = useRouter();
@@ -22,7 +24,10 @@ export default function AddPlantScreen() {
   const [species, setSpecies] = useState('');
   const [age, setAge] = useState('');
   const [nickname, setNickname] = useState('');
+  const [wateringSchedule, setWateringSchedule] = useState('1.0');
+  const [notes, setNotes] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Check if a photo was passed from the camera page
   useEffect(() => {
@@ -95,7 +100,52 @@ export default function AddPlantScreen() {
     );
   };
 
-  const handleSubmit = () => {
+  const uploadImageToSupabase = async (uri: string): Promise<string | null> => {
+    try {
+      // Get the file extension
+      const ext = uri.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}.${ext}`;
+      const filePath = `plant-images/${fileName}`;
+
+      // Create form data for upload
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        type: `image/${ext}`,
+        name: fileName,
+      } as any);
+
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('plant-images')
+        .upload(filePath, formData, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('plant-images')
+        .getPublicUrl(filePath);
+
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
+  const handleSubmit = async () => {
     // Validate required fields
     if (!species.trim()) {
       Alert.alert('Missing Information', 'Please enter a plant species.');
@@ -107,18 +157,80 @@ export default function AddPlantScreen() {
       return;
     }
 
-    // Here you would typically save the data to your backend or local storage
-    // For now, we'll just show a success message
-    Alert.alert(
-      'Plant Added!',
-      `Successfully added ${species}${nickname ? ` (${nickname})` : ''} to your collection.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push('/dashboard'),
-        },
-      ]
-    );
+    // Validate watering schedule
+    const wateringNum = parseFloat(wateringSchedule);
+    if (isNaN(wateringNum) || wateringNum < 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid watering schedule (e.g., 1.5 for 1.5 waters per day).');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert(
+          'Authentication Required',
+          'You need to be logged in to add plants. Would you like to sign up or log in?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Log In', onPress: () => router.push('/login') },
+          ]
+        );
+        return;
+      }
+
+      // Upload image if present
+      let imageUrl = null;
+      if (imageUri) {
+        imageUrl = await uploadImageToSupabase(imageUri);
+        if (!imageUrl) {
+          Alert.alert('Warning', 'Image upload failed, but plant will still be saved.');
+        }
+      }
+
+      // Insert plant into database
+      const { data, error } = await supabase
+        .from('plants')
+        .insert([
+          {
+            user_id: user.id,
+            species: species.trim(),
+            age: age.trim(),
+            nickname: nickname.trim() || null,
+            watering_schedule: wateringNum,
+            notes: notes.trim() || null,
+            image_url: imageUrl,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      Alert.alert(
+        'Plant Added!',
+        `Successfully added ${species}${nickname ? ` (${nickname})` : ''} to your collection.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/dashboard'),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error adding plant:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to add plant. Please try again.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -180,6 +292,35 @@ export default function AddPlantScreen() {
             </View>
 
             <View style={styles.formGroup}>
+              <Text style={styles.label}>
+                Watering Schedule <Text style={styles.required}>*</Text>
+              </Text>
+              <Text style={styles.photoHint}>Waters per day (e.g., 1.0, 0.5, 2.0)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 1.0"
+                placeholderTextColor="rgba(15, 49, 29, 0.4)"
+                value={wateringSchedule}
+                onChangeText={setWateringSchedule}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Add care notes, observations, or reminders..."
+                placeholderTextColor="rgba(15, 49, 29, 0.4)"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
               <Text style={styles.label}>Plant Photo (optional)</Text>
               <Text style={styles.photoHint}>Add a photo for easy identification</Text>
 
@@ -209,19 +350,23 @@ export default function AddPlantScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               onPress={handleSubmit}
-              style={styles.submitButton}
+              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+              disabled={submitting}
             >
-              <Text style={styles.submitButtonText}>Add Plant</Text>
+              {submitting ? (
+                <ActivityIndicator size="small" color="#f5f7f4" />
+              ) : (
+                <Text style={styles.submitButtonText}>Add Plant</Text>
+              )}
             </TouchableOpacity>
 
-            <Link href="/dashboard" asChild>
-              <TouchableOpacity
-                accessibilityRole="button"
-                style={styles.cancelButton}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </Link>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.cancelButton}
+              onPress={() => router.push('/dashboard')}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.infoCard}>
@@ -304,6 +449,11 @@ const styles = StyleSheet.create({
     color: '#0f311d',
     backgroundColor: '#ffffff',
   },
+  textArea: {
+    height: 100,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
   submitButton: {
     marginTop: 8,
     height: 52,
@@ -316,6 +466,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
+  },
+  submitButtonDisabled: {
+    backgroundColor: 'rgba(11, 77, 38, 0.5)',
+    shadowOpacity: 0.1,
   },
   submitButtonText: {
     fontSize: 16,

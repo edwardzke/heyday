@@ -112,9 +112,6 @@ export default function CameraPage() {
       {!imageUri ? (
         <CameraView ref={cameraRef} style={styles.camera} facing="back">
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.primaryButton} onPress={takePhotoForPlant}>
-              <Text style={styles.buttonText}>🌿 Add to Plant Collection</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.button} onPress={takeAndUploadPhoto}>
               <Text style={styles.buttonText}>📸 Capture & Upload</Text>
             </TouchableOpacity>
