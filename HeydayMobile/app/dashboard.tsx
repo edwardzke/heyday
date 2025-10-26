@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect} from 'react';
 import {
   Alert,
   Animated,
@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
@@ -24,41 +25,60 @@ export default function DashboardScreen() {
   const dragStart = useRef(MENU_WIDTH);
   const { width: screenWidth } = Dimensions.get('window');
 
-  const plantOverviews = useMemo(
-    () => [
-      {
-        id: 'greenhouse-west',
-        title: 'West Greenhouse',
-        status: 'Thriving',
-        note: 'Rotate monsteras 45° tomorrow to balance sunlight.',
-        metrics: [
-          { label: 'Temp', value: '72°F' },
-          { label: 'Humidity', value: '61%' },
-        ],
-      },
-      {
-        id: 'atrium-fern',
-        title: 'Atrium Fern Shelf',
-        status: 'Needs mist',
-        note: 'Morning humidity dipped below range. Schedule a midday mist.',
-        metrics: [
-          { label: 'Temp', value: '68°F' },
-          { label: 'Humidity', value: '47%' },
-        ],
-      },
-      {
-        id: 'kitchen-herbs',
-        title: 'Kitchen Herb Wall',
-        status: 'Stable',
-        note: 'Clip basil tops and log nutrient mix after dinner prep.',
-        metrics: [
-          { label: 'Temp', value: '70°F' },
-          { label: 'Humidity', value: '54%' },
-        ],
-      },
-    ],
-    []
-  );
+  const [plants, setPlants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlants = async () => {
+      try {
+        const response = await fetch("https://8c33a40a6c4f.ngrok-free.app/upload/plants/");
+        const data = await response.json();
+        setPlants(data.plants || []);
+      } catch (err) {
+        console.error("Failed to fetch plants:", err);
+        Alert.alert("Error", "Unable to load your plants.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPlants();
+  }, []);
+
+  // const plantOverviews = useMemo(
+  //   () => [
+  //     {
+  //       id: 'greenhouse-west',
+  //       title: 'West Greenhouse',
+  //       status: 'Thriving',
+  //       note: 'Rotate monsteras 45° tomorrow to balance sunlight.',
+  //       metrics: [
+  //         { label: 'Temp', value: '72°F' },
+  //         { label: 'Humidity', value: '61%' },
+  //       ],
+  //     },
+  //     {
+  //       id: 'atrium-fern',
+  //       title: 'Atrium Fern Shelf',
+  //       status: 'Needs mist',
+  //       note: 'Morning humidity dipped below range. Schedule a midday mist.',
+  //       metrics: [
+  //         { label: 'Temp', value: '68°F' },
+  //         { label: 'Humidity', value: '47%' },
+  //       ],
+  //     },
+  //     {
+  //       id: 'kitchen-herbs',
+  //       title: 'Kitchen Herb Wall',
+  //       status: 'Stable',
+  //       note: 'Clip basil tops and log nutrient mix after dinner prep.',
+  //       metrics: [
+  //         { label: 'Temp', value: '70°F' },
+  //         { label: 'Humidity', value: '54%' },
+  //       ],
+  //     },
+  //   ],
+  //   []
+  // );
 
   const todoItems = useMemo(
     () => [
@@ -189,8 +209,52 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             )}
           </View>
-
+          
           <View style={styles.card}>
+            <Text style={styles.cardTitle}>Plant overviews</Text>
+
+            {loading && <Text>Loading...</Text>}
+
+            {!loading && plants.length === 0 && (
+              <Text style={{ color: 'rgba(15,49,29,0.6)' }}>
+                You haven’t added any plants yet 🌱
+              </Text>
+            )}
+
+            {!loading &&
+              plants.map((plant) => (
+                <View key={plant.id} style={styles.plantCard}>
+                  <View style={styles.plantHeader}>
+                    <View>
+                      <Text style={styles.plantTitle}>
+                        {plant.nickname || plant.species}
+                      </Text>
+                      <Text style={styles.plantStatus}>Age: {plant.age || "Unknown"}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      onPress={() => Alert.alert("Coming soon", "Edit or manage plant")}
+                      style={styles.manageLink}
+                    >
+                      <Text style={styles.manageLinkLabel}>Manage</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {plant.photo_url ? (
+                    <View style={{ marginTop: 10 }}>
+                      <Image
+                        source={{ uri: plant.photo_url }}
+                        style={{ width: '100%', height: 160, borderRadius: 12, marginTop: 10 }}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={styles.plantNote}>No photo uploaded.</Text>
+                  )}
+                </View>
+              ))}
+          </View>
+          {/* <View style={styles.card}>
             <Text style={styles.cardTitle}>Plant overviews</Text>
             {plantOverviews.map((plant) => (
               <View key={plant.id} style={styles.plantCard}>
@@ -218,7 +282,7 @@ export default function DashboardScreen() {
                 <Text style={styles.plantNote}>{plant.note}</Text>
               </View>
             ))}
-          </View>
+          </View> */}
         </ScrollView>
 
         {menuOpen && (

@@ -22,8 +22,8 @@ export default function CameraPage() {
   const [showManualButton, setShowManualButton] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const CLASSIFY_URL = "https://6140210fa1a4.ngrok-free.app/upload/classify/";
-  const UPLOAD_URL = "https://6140210fa1a4.ngrok-free.app/upload/";
+  const CLASSIFY_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/classify/";
+  const UPLOAD_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/";
 
   useEffect(() => {
     (async () => {

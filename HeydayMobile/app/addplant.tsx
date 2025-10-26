@@ -105,7 +105,7 @@ export default function AddPlantScreen() {
       return;
     }
 
-    const ADD_URL = "https://6140210fa1a4.ngrok-free.app/upload/add/";
+    const ADD_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/add/";
 
     try {
       const formData = new FormData();

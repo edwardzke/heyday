@@ -2,9 +2,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.conf import settings
 from django.core.files.storage import default_storage
+from .models import Plant
+from django.contrib.auth.models import User
+from django.core.serializers import serialize
 import requests
 import os
 import traceback
+import uuid
 
 @csrf_exempt
 def upload_photo(request):
@@ -15,7 +19,10 @@ def upload_photo(request):
 
     try:
         # ✅ Save directly to S3
-        path = default_storage.save(photo.name, photo)
+        # Generate a unique filename with same extension
+        ext = os.path.splitext(photo.name)[1] or ".jpg"
+        unique_name = f"{uuid.uuid4().hex}{ext}"
+        path = default_storage.save(unique_name, photo)
         file_url = default_storage.url(path)
 
         return JsonResponse({
@@ -99,21 +106,52 @@ def add_plant(request):
         if photo:
             # Save to S3 (or local)
             from django.core.files.storage import default_storage
-            path = default_storage.save(photo.name, photo)
+            # Generate a unique filename with same extension
+            ext = os.path.splitext(photo.name)[1] or ".jpg"
+            unique_name = f"{uuid.uuid4().hex}{ext}"
+            path = default_storage.save(unique_name, photo)
             file_url = default_storage.url(path)
 
-        # (Later we’ll link to user DB model)
+        # Temporary: Assign to first user (until JWT added)
+        user = User.objects.first()
+
+        plant = Plant.objects.create(
+            user=user,
+            species=species,
+            nickname=nickname,
+            age=age,
+            photo_url=file_url
+        )
+
         return JsonResponse({
             "status": "success",
             "message": "Plant added successfully",
             "plant": {
-                "species": species,
-                "age": age,
-                "nickname": nickname,
-                "photo_url": file_url,
+                "id": plant.id,
+                "species": plant.species,
+                "nickname": plant.nickname,
+                "age": plant.age,
+                "photo_url": plant.photo_url,
             },
         })
 
     except Exception as e:
         print("❌ Error saving plant:", e)
         return JsonResponse({"error": "Internal error adding plant"}, status=500)
+    
+@csrf_exempt
+def list_plants(request):
+    user = User.objects.first()
+    plants = Plant.objects.filter(user=user).order_by("-date_added")
+    data = [
+        {
+            "id": p.id,
+            "species": p.species,
+            "nickname": p.nickname,
+            "age": p.age,
+            "photo_url": p.photo_url,
+            "date_added": p.date_added.isoformat(),
+        }
+        for p in plants
+    ]
+    return JsonResponse({"plants": data})
