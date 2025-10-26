@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "apps.core",
+    "storages",
     "uploads",
 ]
 
@@ -107,8 +108,27 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 if (FRONTEND_DIST_DIR / "assets").exists():
     STATICFILES_DIRS.append(FRONTEND_DIST_DIR)
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# MEDIA_URL = "media/"
+# MEDIA_ROOT = BASE_DIR / "media"
+
+USE_S3 = True
+
+if USE_S3:
+    # AWS credentials (from .env)
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+
+    # Make uploaded media public
+    AWS_DEFAULT_ACL = None
+    AWS_S3_OBJECT_PARAMETERS = {"ACL": "private"}
+    AWS_QUERYSTRING_AUTH = False
+
+    # Static & Media file storage locations
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -121,5 +141,3 @@ CORS_ALLOWED_ORIGINS = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://loc
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOW_ALL_ORIGINS = True
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
