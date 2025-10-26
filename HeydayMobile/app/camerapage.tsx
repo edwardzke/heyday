@@ -5,11 +5,13 @@ import { Camera, CameraView } from "expo-camera";
 export default function CameraPage() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResponse, setUploadResponse] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  // ✅ Ask for permission
+  const BACKEND_URL = "https://bd196c080b30.ngrok-free.app/upload/classify/";
+
+
   useEffect(() => {
     (async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
@@ -17,50 +19,44 @@ export default function CameraPage() {
     })();
   }, []);
 
-  // ✅ Capture and upload
-  const takeAndUploadPhoto = async () => {
+  const captureAndClassify = async () => {
     if (!cameraRef.current) {
       Alert.alert("Camera not ready!");
       return;
     }
-
-    setUploading(true);
-
+    setLoading(true);
     try {
-      // 1️⃣ Capture image
       const photo = await cameraRef.current.takePictureAsync({ base64: false });
       setImageUri(photo.uri);
 
-      // 2️⃣ Create form data
       const formData = new FormData();
       formData.append("photo", {
         uri: photo.uri,
         type: "image/jpeg",
-        name: "upload.jpg",
+        name: "plant.jpg",
       } as any);
 
-      // 3️⃣ Send to your Django backend
-      const response = await fetch("https://8691afe51afc.ngrok-free.app/upload/", {
+      const response = await fetch(BACKEND_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
-      const result = await response.json();
-      console.log("✅ Upload response:", result);
+      if (!response.ok) throw new Error(`Server error ${response.status}`);
+      const data = await response.json();
 
-      if (result.file_url) {
-        setUploadResponse(`Uploaded to: ${result.file_url}`);
+      if (data.class) {
+        setResult(
+          `🌱 ${data.common_name || data.class}\nConfidence: ${(data.score * 100).toFixed(1)}%`
+        );
       } else {
-        setUploadResponse(`Upload failed: ${JSON.stringify(result)}`);
+        setResult("❌ Could not identify plant.");
       }
-    } catch (error: any) {
-      console.error("❌ Upload failed:", error);
-      Alert.alert("Upload error", error.message || "Something went wrong.");
+    } catch (err: any) {
+      console.error("❌ Upload failed:", err);
+      Alert.alert("Error", err.message || "Upload failed.");
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
@@ -71,24 +67,24 @@ export default function CameraPage() {
     <View style={styles.container}>
       {!imageUri ? (
         <CameraView ref={cameraRef} style={styles.camera} facing="back">
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.button} onPress={takeAndUploadPhoto}>
-              <Text style={styles.buttonText}>📸 Capture & Upload</Text>
+          <View style={styles.overlay}>
+            <TouchableOpacity style={styles.button} onPress={captureAndClassify}>
+              <Text style={styles.buttonText}>📸 Identify Plant</Text>
             </TouchableOpacity>
           </View>
         </CameraView>
       ) : (
         <View style={styles.resultContainer}>
           <Image source={{ uri: imageUri }} style={styles.preview} />
-          {uploading ? (
+          {loading ? (
             <ActivityIndicator size="large" color="#2E7D32" />
           ) : (
-            <Text style={styles.result}>{uploadResponse || "Ready!"}</Text>
+            <Text style={styles.result}>{result || "Ready!"}</Text>
           )}
           <TouchableOpacity
             onPress={() => {
               setImageUri(null);
-              setUploadResponse(null);
+              setResult(null);
             }}
             style={styles.button}
           >
@@ -103,15 +99,10 @@ export default function CameraPage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#E8F5E9" },
   camera: { flex: 1, justifyContent: "flex-end" },
-  buttonContainer: { alignItems: "center", marginBottom: 50 },
-  button: {
-    backgroundColor: "#66BB6A",
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-  },
+  overlay: { position: "absolute", bottom: 50, alignSelf: "center" },
+  button: { backgroundColor: "#66BB6A", paddingVertical: 15, paddingHorizontal: 30, borderRadius: 10 },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 18 },
-  resultContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  resultContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   preview: { width: 300, height: 400, borderRadius: 12, marginBottom: 20 },
   result: { fontSize: 16, fontWeight: "bold", color: "#2E7D32", textAlign: "center" },
 });

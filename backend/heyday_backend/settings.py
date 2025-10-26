@@ -22,6 +22,7 @@ FRONTEND_DEV_SERVER_ORIGIN = os.environ.get(
     "FRONTEND_DEV_SERVER_ORIGIN", "http://localhost:5173"
 )
 
+PLANTNET_API_KEY = os.environ.get("PLANTNET_API_KEY", "")
 
 
 OPENWEATHER_API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
