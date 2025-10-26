@@ -165,6 +165,7 @@ export default function AddPlantScreen() {
     }
 
     setSubmitting(true);
+    const ADD_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/add/";
 
     try {
       // Check if user is authenticated

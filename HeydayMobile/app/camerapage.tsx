@@ -13,6 +13,8 @@ export default function CameraPage() {
 
   const BACKEND_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/classify/";
 
+  const CLASSIFY_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/classify/";
+  const UPLOAD_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/";
 
   useEffect(() => {
     (async () => {
