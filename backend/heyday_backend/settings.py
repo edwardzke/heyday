@@ -31,7 +31,8 @@ OPENWEATHER_DEFAULT_LOCATION = os.environ.get(
 OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
-DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
+# DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
+DEBUG = True
 ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1"]
 
 INSTALLED_APPS = [
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "apps.core",
+    "uploads",
 ]
 
 MIDDLEWARE = [
@@ -116,3 +118,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173").split()
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CORS_ALLOW_ALL_ORIGINS = True
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"

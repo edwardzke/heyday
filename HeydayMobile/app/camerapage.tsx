@@ -77,7 +77,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
   },
   preview: {
-    width: 320,
+    width: 320,Take a photo using expo-camera
+    
+    
     height: 420,
     borderRadius: 12,
     marginBottom: 20,
