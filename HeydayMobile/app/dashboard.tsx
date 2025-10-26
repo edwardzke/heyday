@@ -7,7 +7,7 @@ export default function DashboardScreen() {
       <Text style={styles.title}>🌻 Your Garden Dashboard</Text>
       <Text style={styles.subtitle}>Monitor your plants and explore AR planting</Text>
 
-      <Link href="/camera" asChild>
+      <Link href="/camerapage" asChild>
         <TouchableOpacity style={styles.cameraButton}>
           <Text style={styles.cameraButtonText}>Open Camera</Text>
         </TouchableOpacity>
