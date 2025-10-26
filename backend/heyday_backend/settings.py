@@ -33,7 +33,7 @@ OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 DEBUG = True
-ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1", ".ngrok-free.app"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
