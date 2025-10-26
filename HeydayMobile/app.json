@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoplist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan plants and capture photos."
+      },
+      "bundleIdentifier": "com.anonymous.HeydayMobile"
     },
     "android": {
       "adaptiveIcon": {
