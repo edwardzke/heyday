@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Image,
@@ -12,16 +12,24 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function AddPlantScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const [species, setSpecies] = useState('');
   const [age, setAge] = useState('');
   const [nickname, setNickname] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+
+  // Check if a photo was passed from the camera page
+  useEffect(() => {
+    if (params.photoUri && typeof params.photoUri === 'string') {
+      setImageUri(params.photoUri);
+    }
+  }, [params.photoUri]);
 
   const pickImage = async () => {
     // Request permissions
