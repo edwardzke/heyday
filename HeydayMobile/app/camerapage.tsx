@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from "react-native";
 import { Camera, CameraView } from "expo-camera";
+import { useRouter } from "expo-router";
 
 export default function CameraPage() {
+  const router = useRouter();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -19,7 +21,30 @@ export default function CameraPage() {
     })();
   }, []);
 
-  const captureAndClassify = async () => {
+  // ✅ Capture photo and redirect to add plant page
+  const takePhotoForPlant = async () => {
+    if (!cameraRef.current) {
+      Alert.alert("Camera not ready!");
+      return;
+    }
+
+    try {
+      // Capture image
+      const photo = await cameraRef.current.takePictureAsync({ base64: false });
+
+      // Navigate to addplant page with the photo URI
+      router.push({
+        pathname: '/addplant',
+        params: { photoUri: photo.uri },
+      });
+    } catch (error: any) {
+      console.error("❌ Photo capture failed:", error);
+      Alert.alert("Capture error", error.message || "Something went wrong.");
+    }
+  };
+
+  // ✅ Capture and upload (original functionality)
+  const takeAndUploadPhoto = async () => {
     if (!cameraRef.current) {
       Alert.alert("Camera not ready!");
       return;
@@ -67,9 +92,12 @@ export default function CameraPage() {
     <View style={styles.container}>
       {!imageUri ? (
         <CameraView ref={cameraRef} style={styles.camera} facing="back">
-          <View style={styles.overlay}>
-            <TouchableOpacity style={styles.button} onPress={captureAndClassify}>
-              <Text style={styles.buttonText}>📸 Identify Plant</Text>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.primaryButton} onPress={takePhotoForPlant}>
+              <Text style={styles.buttonText}>🌿 Add to Plant Collection</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={takeAndUploadPhoto}>
+              <Text style={styles.buttonText}>📸 Capture & Upload</Text>
             </TouchableOpacity>
           </View>
         </CameraView>
@@ -99,8 +127,19 @@ export default function CameraPage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#E8F5E9" },
   camera: { flex: 1, justifyContent: "flex-end" },
-  overlay: { position: "absolute", bottom: 50, alignSelf: "center" },
-  button: { backgroundColor: "#66BB6A", paddingVertical: 15, paddingHorizontal: 30, borderRadius: 10 },
+  buttonContainer: { alignItems: "center", marginBottom: 50, gap: 12 },
+  primaryButton: {
+    backgroundColor: "#0b4d26",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+  },
+  button: {
+    backgroundColor: "#66BB6A",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+  },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 18 },
   resultContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   preview: { width: 300, height: 400, borderRadius: 12, marginBottom: 20 },

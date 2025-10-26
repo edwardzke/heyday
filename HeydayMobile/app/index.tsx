@@ -16,6 +16,11 @@ export default function LandingScreen() {
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
         </Link>
+        <Link href="/addplant" asChild>
+          <TouchableOpacity style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>+ Add Plant</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
     </ImageBackground>
   );
@@ -28,4 +33,14 @@ const styles = StyleSheet.create({
   subtitle: { color: '#c8e6c9', fontSize: 18, marginBottom: 30 },
   button: { backgroundColor: '#81C784', paddingVertical: 15, paddingHorizontal: 40, borderRadius: 10 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  secondaryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    marginTop: 15,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  secondaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
