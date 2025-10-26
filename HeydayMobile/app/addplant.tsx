@@ -95,31 +95,58 @@ export default function AddPlantScreen() {
     );
   };
 
-  const handleSubmit = () => {
-    // Validate required fields
+  const handleSubmit = async () => {
     if (!species.trim()) {
       Alert.alert('Missing Information', 'Please enter a plant species.');
       return;
     }
-
     if (!age.trim()) {
       Alert.alert('Missing Information', 'Please enter the plant age.');
       return;
     }
 
-    // Here you would typically save the data to your backend or local storage
-    // For now, we'll just show a success message
-    Alert.alert(
-      'Plant Added!',
-      `Successfully added ${species}${nickname ? ` (${nickname})` : ''} to your collection.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push('/dashboard'),
-        },
-      ]
-    );
+    const ADD_URL = "https://6140210fa1a4.ngrok-free.app/upload/add/";
+
+    try {
+      const formData = new FormData();
+      formData.append("species", species);
+      formData.append("age", age);
+      formData.append("nickname", nickname);
+      if (imageUri) {
+        formData.append("photo", {
+          uri: imageUri,
+          type: "image/jpeg",
+          name: "plant.jpg",
+        } as any);
+      }
+
+      const response = await fetch(ADD_URL, {
+        method: "POST",
+        headers: { "Content-Type": "multipart/form-data" },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to add plant");
+      }
+
+      Alert.alert(
+        "Plant Added!",
+        `${species}${nickname ? ` (${nickname})` : ''} was successfully added to your collection.`,
+        [
+          {
+            text: "OK",
+            onPress: () => router.push("/dashboard"),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error("❌ Add plant error:", error);
+      Alert.alert("Error", error.message || "Something went wrong while saving your plant.");
+    }
   };
+
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
