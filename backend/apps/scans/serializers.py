@@ -94,3 +94,19 @@ class ArtifactUploadSerializer(serializers.Serializer):
                     "chunk_index must be less than total_chunks."
                 )
         return attrs
+
+
+class FloorplanPointSerializer(serializers.Serializer):
+    x = serializers.FloatField()
+    y = serializers.FloatField()
+
+
+class ManualFloorplanSerializer(serializers.Serializer):
+    label = serializers.CharField(required=False, allow_blank=True)
+    points = FloorplanPointSerializer(many=True)
+    scale = serializers.FloatField(required=False, min_value=1e-6, default=1.0)
+
+    def validate_points(self, value):
+        if len(value) < 3:
+            raise serializers.ValidationError("Provide at least three points.")
+        return value

@@ -57,13 +57,27 @@ public class RoomScanController : MonoBehaviour
 - `GET /api/scans/sessions/` — list recent sessions (latest 25).
 - `GET /api/scans/sessions/{id}/` — session detail with artifacts + processing jobs.
 - `POST /api/scans/sessions/{id}/artifacts/` — upload raw/processed assets. Supports chunked uploads (`chunk_index`, `total_chunks`, optional `upload_token`). On final chunk it materializes the file and records metadata.
-- `POST /api/scans/sessions/{id}/jobs/` — enqueue processing. Use `auto_complete=true` to stub success locally.
+- `POST /api/scans/sessions/{id}/jobs/` — enqueue processing. Use `auto_complete=true` to stub success locally. Add `generate_floorplan=true` to derive a top-down floorplan from the mesh and attach as an SVG artifact (`kind=floorplan`).
 
 Artifacts live under `media/scans/{session_uuid}/{upload_token}.ext` and are typed via `kind` (`raw_mesh`, `processed_mesh`, `floorplan`, `camera_path`, `screen_capture`, `metadata`).
 
 ## Frontend surface (Vite)
 - Dashboard now shows a “Room scans” card with live session status pulled from `/api/scans/sessions/`.
 - Use the processed mesh artifact (`kind=processed_mesh`) as the default to visualize; fallback to raw mesh if processing is pending.
+
+## Floorplan generation
+- Implemented in `backend/apps/scans/floorplan.py` using `trimesh` and numpy. It loads the processed (or raw) mesh, projects vertices to XY, computes a convex hull, and emits an SVG footprint.
+- Install deps: `pip install trimesh numpy` (already listed in `backend/requirements.txt`).
+- Trigger via processing endpoint: `POST /api/scans/sessions/{id}/jobs/` with `{"auto_complete": true, "generate_floorplan": true}`. Response includes the floorplan artifact metadata.
+- Manual fallback: if scanning fails, users can submit hand-plotted points to build a floorplan. `POST /api/scans/sessions/{id}/floorplan/manual/` with payload
+  ```json
+  {
+    "label": "Home office",
+    "scale": 1.0,
+    "points": [{ "x": 0, "y": 0 }, { "x": 4.2, "y": 0 }, { "x": 4.2, "y": 3.5 }, { "x": 0, "y": 3.5 }]
+  }
+  ```
+  Points are used in the provided order (no auto-hull) and scaled by the optional `scale` factor. The service produces an SVG `floorplan` artifact and records a completed processing job for the session.
 
 ## Operational notes
 - Triangle budget: target 200–300k tris per room for smooth mobile upload; decimate before upload to keep payloads under ~25 MB.
