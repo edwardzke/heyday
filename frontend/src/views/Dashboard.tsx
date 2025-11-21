@@ -16,6 +16,24 @@ type WeatherResponse = {
   resolved_at: string;
 };
 
+type ScanArtifact = {
+  id: string;
+  kind: string;
+  status: string;
+  bytes: number;
+  created_at: string;
+};
+
+type ScanSession = {
+  id: string;
+  label: string;
+  status: string;
+  device_type: string;
+  platform: string;
+  created_at: string;
+  artifacts: ScanArtifact[];
+};
+
 function formatTemperature(value: number | null, units: string) {
   if (value === null || Number.isNaN(value)) {
     return "—";
@@ -84,6 +102,9 @@ export function Dashboard() {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [weatherError, setWeatherError] = useState<string>("");
   const [weatherLoading, setWeatherLoading] = useState<boolean>(true);
+  const [scanSessions, setScanSessions] = useState<ScanSession[]>([]);
+  const [scanError, setScanError] = useState<string>("");
+  const [scanLoading, setScanLoading] = useState<boolean>(true);
   const [now, setNow] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -131,6 +152,37 @@ export function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    async function fetchSessions() {
+      try {
+        setScanLoading(true);
+        setScanError("");
+        const response = await fetch("/api/scans/sessions/", {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(
+            body?.detail || `Failed to load scans (status ${response.status}).`
+          );
+        }
+        const body = (await response.json()) as ScanSession[];
+        setScanSessions(body);
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return;
+        }
+        setScanError((error as Error).message);
+      } finally {
+        setScanLoading(false);
+      }
+    }
+
+    fetchSessions();
+    return () => controller.abort();
+  }, []);
+
   const formattedTime = useMemo(
     () =>
       formatDate(now, {
@@ -167,6 +219,28 @@ export function Dashboard() {
   }, [weather]);
 
   const weatherIconSrc = resolveWeatherIcon(weather?.icon ?? null);
+
+  const formattedScans = useMemo(
+    () =>
+      scanSessions.map((session) => {
+        const primaryArtifact = session.artifacts.find(
+          (artifact) => artifact.kind === "processed_mesh"
+        );
+        const fallbackArtifact = session.artifacts[0];
+        const artifact = primaryArtifact || fallbackArtifact;
+        return {
+          id: session.id,
+          label: session.label || "Untitled scan",
+          status: session.status,
+          device:
+            session.device_type ||
+            (session.platform ? session.platform.toUpperCase() : "Unknown"),
+          createdAt: new Date(session.created_at),
+          artifact,
+        };
+      }),
+    [scanSessions]
+  );
 
   return (
     <div className="dashboard">
@@ -313,12 +387,64 @@ export function Dashboard() {
         </section>
 
         <section className="cards-grid secondary-grid">
-          <article className="card placeholder-card">
-            <h3 className="card-title">Plant journal</h3>
-            <p className="placeholder-text">
-              Daily notes, photo uploads, and milestone tracking will appear
-              here.
-            </p>
+          <article className="card scan-card">
+            <div className="card-header">
+              <div>
+                <p className="subtitle">Spatial capture</p>
+                <h3 className="card-title">Room scans</h3>
+              </div>
+              <button className="button compact-button" type="button">
+                New scan
+              </button>
+            </div>
+            {scanLoading ? (
+              <div className="scan-empty">Loading sessions…</div>
+            ) : scanError ? (
+              <div className="scan-error" role="alert">
+                {scanError}
+              </div>
+            ) : formattedScans.length === 0 ? (
+              <div className="scan-empty">
+                No scans yet. Trigger a capture from the mobile app to see it
+                land here.
+              </div>
+            ) : (
+              <ul className="scan-list">
+                {formattedScans.map((scan) => (
+                  <li key={scan.id} className="scan-row">
+                    <div>
+                      <p className="scan-label">{scan.label}</p>
+                      <p className="scan-meta">
+                        {scan.device} ·{" "}
+                        {scan.createdAt.toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <div className="scan-badges">
+                      {scan.artifact ? (
+                        <span className="status-badge muted">
+                          {scan.artifact.kind.replace("_", " ")} ·{" "}
+                          {scan.artifact.bytes
+                            ? `${Math.round(scan.artifact.bytes / 1024 / 1024)} MB`
+                            : "pending"}
+                        </span>
+                      ) : (
+                        <span className="status-badge muted">Awaiting upload</span>
+                      )}
+                      <span
+                        className={`status-badge ${scan.status === "ready" ? "success" : "pending"}`}
+                      >
+                        {scan.status}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
 
           <article className="card placeholder-card">

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "apps.core",
     "uploads",
+    "apps.scans",
 ]
 
 MIDDLEWARE = [

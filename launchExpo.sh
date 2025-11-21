@@ -44,12 +44,13 @@ log "Starting Django backend..."
 ) &
 BACKEND_PID=$!
 
-log "Starting Expo dev server..."
+
+log "Starting Expo dev server in foreground (interactive)..."
 (
   cd "$EXPO_DIR"
   npm run start
-) &
-EXPO_PID=$!
+)
+EXPO_EXIT_CODE=$?
 
-log "Backend (pid $BACKEND_PID) and Expo (pid $EXPO_PID) are running. Press Ctrl+C to stop both."
-wait -n "$BACKEND_PID" "$EXPO_PID"
+log "Expo exited with code $EXPO_EXIT_CODE"
+wait -n "$BACKEND_PID" || true

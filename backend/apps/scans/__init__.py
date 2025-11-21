@@ -1,0 +1,1 @@
+"""AR room scanning domain."""

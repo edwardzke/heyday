@@ -491,6 +491,102 @@ body {
   line-height: 1.5;
 }
 
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.button.compact-button {
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+}
+
+.scan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scan-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.scan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.scan-label {
+  margin: 0;
+  font-weight: 600;
+  color: #0f311d;
+}
+
+.scan-meta {
+  margin: 0.25rem 0 0;
+  color: rgba(31, 39, 33, 0.7);
+  font-size: 0.95rem;
+}
+
+.scan-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-badge {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.status-badge.success {
+  background: rgba(12, 127, 68, 0.12);
+  color: #0b7f44;
+  border: 1px solid rgba(12, 127, 68, 0.2);
+}
+
+.status-badge.pending {
+  background: rgba(255, 206, 84, 0.16);
+  color: #b86b00;
+  border: 1px solid rgba(255, 206, 84, 0.26);
+}
+
+.status-badge.muted {
+  background: rgba(31, 39, 33, 0.08);
+  color: rgba(31, 39, 33, 0.75);
+  border: 1px solid rgba(31, 39, 33, 0.12);
+}
+
+.scan-empty,
+.scan-error {
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(31, 39, 33, 0.06);
+  margin: 0;
+  color: rgba(31, 39, 33, 0.8);
+}
+
+.scan-error {
+  border: 1px solid rgba(212, 44, 44, 0.25);
+  background: rgba(212, 44, 44, 0.08);
+  color: #a21414;
+}
+
 @media (max-width: 1024px) {
   .dashboard {
     grid-template-columns: 1fr;
