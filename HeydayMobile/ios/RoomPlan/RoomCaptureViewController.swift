@@ -13,46 +13,67 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     var onFinished: ((String) -> Void)?
     var onCancelled: (() -> Void)?
   
-    private let exportButton = UIButton(type: .system)
+    private var isScanning: Bool = false
+  
+    private var roomCaptureView: RoomCaptureView!
+    private var roomCaptureSessionConfig: RoomCaptureSession.Configuration = RoomCaptureSession.Configuration()
+    private var finalResults: CapturedRoom?
     
+    private let finishButton = UIButton(type: .system)
+    private let exportButton = UIButton(type: .system)
+
     @IBOutlet var doneButton: UIBarButtonItem?
     @IBOutlet var cancelButton: UIBarButtonItem?
     @IBOutlet var activityIndicator: UIActivityIndicatorView?
     
-    private var isScanning: Bool = false
-    
-    private var roomCaptureView: RoomCaptureView!
-    private var roomCaptureSessionConfig: RoomCaptureSession.Configuration = RoomCaptureSession.Configuration()
-    
-    private var finalResults: CapturedRoom?
-    
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Set up after loading the view.
+
         setupRoomCaptureView()
+        setupFinishButton()
         setupExportButton()
+
         activityIndicator?.stopAnimating()
     }
   
+    private func setupFinishButton() {
+        finishButton.setTitle("Finish Scan", for: .normal)
+        finishButton.setTitleColor(.white, for: .normal)
+        finishButton.backgroundColor = .systemGreen
+        finishButton.layer.cornerRadius = 22
+        finishButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 18, bottom: 10, right: 18)
+
+        finishButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(finishButton)
+
+        NSLayoutConstraint.activate([
+            finishButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            finishButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
+        ])
+
+        finishButton.addTarget(self, action: #selector(finishScanTapped), for: .touchUpInside)
+    }
+
     private func setupExportButton() {
         exportButton.setTitle("Export", for: .normal)
         exportButton.setTitleColor(.white, for: .normal)
         exportButton.backgroundColor = .systemBlue
-        exportButton.layer.cornerRadius = 24
+        exportButton.layer.cornerRadius = 22
         exportButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 24, bottom: 10, right: 24)
 
         exportButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(exportButton)
 
-        // Position it near the bottom center of the screen
         NSLayoutConstraint.activate([
-            exportButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exportButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             exportButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
         ])
 
-        // Wire it to your existing @IBAction
         exportButton.addTarget(self, action: #selector(exportResults(_:)), for: .touchUpInside)
+
+        // initially disabled until finalResults exists
+        exportButton.isEnabled = false
+        exportButton.alpha = 0.5
     }
     
     private func setupRoomCaptureView() {
@@ -76,17 +97,20 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     private func startSession() {
         isScanning = true
         roomCaptureView?.captureSession.run(configuration: roomCaptureSessionConfig)
-        
-        setActiveNavBar()
     }
     
     private func stopSession() {
         isScanning = false
         roomCaptureView?.captureSession.stop()
-        
-        setCompleteNavBar()
     }
     
+    @objc private func finishScanTapped() {
+        if isScanning {
+            activityIndicator?.startAnimating()
+            stopSession()
+        }
+    }
+
     // Decide to post-process and show the final results.
     func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool {
         return true
@@ -95,9 +119,12 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     // Access the final post-processed results.
     func captureView(didPresent processedResult: CapturedRoom, error: Error?) {
         finalResults = processedResult
+
+        isScanning = false
+        activityIndicator?.stopAnimating()
+
         exportButton.isEnabled = true
         exportButton.alpha = 1.0
-        activityIndicator?.stopAnimating()
     }
     
     @IBAction func doneScanning(_ sender: UIBarButtonItem) {
@@ -110,30 +137,22 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
         onCancelled?()
         dismiss(animated: true)
     }
+
     // Export the USDZ output by specifying the `.mesh` export option.
     // Alternatively, `.parametric` exports the model as unit-sized cubes and `.all`
     // exports both in a single USDZ.
     @IBAction func exportResults(_ sender: UIButton) {
-        // If we’re still scanning, first stop the session so RoomPlan can process
-        if isScanning {
-            stopSession()   // this will eventually trigger captureView(didPresent:...)
+        guard !isScanning, let finalResults else {
+            // still scanning or no results yet
             return
         }
-
-        // After scanning is done, we should have finalResults
-        guard let finalResults else { return }
 
         do {
             let jsonEncoder = JSONEncoder()
             let jsonData = try jsonEncoder.encode(finalResults)
             let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
 
-            // Send result back to React Native
             onFinished?(jsonString)
-
-            // Optionally: also export USDZ / JSON files to disk here if you still want that
-            // and/or show a share sheet.
-
             dismiss(animated: true, completion: nil)
         } catch {
             print("Encoding error: \(error)")
