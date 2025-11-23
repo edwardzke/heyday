@@ -13,7 +13,7 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     var onFinished: ((String) -> Void)?
     var onCancelled: (() -> Void)?
   
-    @IBOutlet var exportButton: UIButton?
+    private let exportButton = UIButton(type: .system)
     
     @IBOutlet var doneButton: UIBarButtonItem?
     @IBOutlet var cancelButton: UIBarButtonItem?
@@ -31,7 +31,28 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
         
         // Set up after loading the view.
         setupRoomCaptureView()
+        setupExportButton()
         activityIndicator?.stopAnimating()
+    }
+  
+    private func setupExportButton() {
+        exportButton.setTitle("Export", for: .normal)
+        exportButton.setTitleColor(.white, for: .normal)
+        exportButton.backgroundColor = .systemBlue
+        exportButton.layer.cornerRadius = 24
+        exportButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 24, bottom: 10, right: 24)
+
+        exportButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(exportButton)
+
+        // Position it near the bottom center of the screen
+        NSLayoutConstraint.activate([
+            exportButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exportButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
+        ])
+
+        // Wire it to your existing @IBAction
+        exportButton.addTarget(self, action: #selector(exportResults(_:)), for: .touchUpInside)
     }
     
     private func setupRoomCaptureView() {
@@ -74,13 +95,14 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     // Access the final post-processed results.
     func captureView(didPresent processedResult: CapturedRoom, error: Error?) {
         finalResults = processedResult
-        self.exportButton?.isEnabled = true
-        self.activityIndicator?.stopAnimating()
+        exportButton.isEnabled = true
+        exportButton.alpha = 1.0
+        activityIndicator?.stopAnimating()
     }
     
     @IBAction func doneScanning(_ sender: UIBarButtonItem) {
         if isScanning { stopSession() } else { cancelScanning(sender) }
-        self.exportButton?.isEnabled = false
+        self.exportButton.isEnabled = false
         self.activityIndicator?.startAnimating()
     }
 
@@ -92,60 +114,49 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     // Alternatively, `.parametric` exports the model as unit-sized cubes and `.all`
     // exports both in a single USDZ.
     @IBAction func exportResults(_ sender: UIButton) {
+        // If we’re still scanning, first stop the session so RoomPlan can process
+        if isScanning {
+            stopSession()   // this will eventually trigger captureView(didPresent:...)
+            return
+        }
+
+        // After scanning is done, we should have finalResults
         guard let finalResults else { return }
 
-        let destinationFolderURL = FileManager.default.temporaryDirectory.appending(path: "Save Scan")
-        let destinationURL = destinationFolderURL.appending(path: "Room.usdz")
-        let capturedRoomURL = destinationFolderURL.appending(path: "Room.json")
-
         do {
-            try FileManager.default.createDirectory(at: destinationFolderURL, withIntermediateDirectories: true)
-
-            // 1) Encode JSON for RoomPlan result
             let jsonEncoder = JSONEncoder()
             let jsonData = try jsonEncoder.encode(finalResults)
-
-            // 2) Keep original behavior: save JSON + USDZ
-            try jsonData.write(to: capturedRoomURL)
-            try finalResults.export(to: destinationURL, exportOptions: .mesh)
-
-            // 3) Show share sheet (optional, as before)
-            let activityVC = UIActivityViewController(activityItems: [destinationFolderURL], applicationActivities: nil)
-            activityVC.modalPresentationStyle = .popover
-            present(activityVC, animated: true, completion: nil)
-            if let popOver = activityVC.popoverPresentationController {
-                popOver.sourceView = self.exportButton
-            }
-
-            // 4) NEW: send JSON string back to React Native
             let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+
+            // Send result back to React Native
             onFinished?(jsonString)
 
-            // 5) Optionally close the scanner UI
-            dismiss(animated: true)
+            // Optionally: also export USDZ / JSON files to disk here if you still want that
+            // and/or show a share sheet.
 
+            dismiss(animated: true, completion: nil)
         } catch {
-            print("Error = \(error)")
+            print("Encoding error: \(error)")
+            onFinished?("{}")
+            dismiss(animated: true, completion: nil)
         }
     }
-
     
     private func setActiveNavBar() {
         UIView.animate(withDuration: 1.0, animations: {
             self.cancelButton?.tintColor = .white
             self.doneButton?.tintColor = .white
-            self.exportButton?.alpha = 0.0
-        }, completion: { complete in
-            self.exportButton?.isHidden = true
-        })
+          self.exportButton.isEnabled = true
+            self.exportButton.alpha = 0.6
+        }, completion: nil)
     }
     
     private func setCompleteNavBar() {
-        self.exportButton?.isHidden = false
+        self.exportButton.isHidden = false
         UIView.animate(withDuration: 1.0) {
             self.cancelButton?.tintColor = .systemBlue
             self.doneButton?.tintColor = .systemBlue
-            self.exportButton?.alpha = 1.0
+            self.exportButton.alpha = 1.0
         }
     }
 }
