@@ -142,25 +142,46 @@ class RoomCaptureViewController: UIViewController, RoomCaptureViewDelegate, Room
     // Alternatively, `.parametric` exports the model as unit-sized cubes and `.all`
     // exports both in a single USDZ.
     @IBAction func exportResults(_ sender: UIButton) {
-        guard !isScanning, let finalResults else {
-            // still scanning or no results yet
-            return
-        }
+        // must NOT be scanning, and we need finalResults
+        guard !isScanning, let finalResults else { return }
 
         do {
-            let jsonEncoder = JSONEncoder()
-            let jsonData = try jsonEncoder.encode(finalResults)
-            let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+            // 1) Choose a persistent, app-accessible folder
+            let docsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let scansFolderURL = docsURL.appendingPathComponent("RoomScans", isDirectory: true)
+            try FileManager.default.createDirectory(at: scansFolderURL, withIntermediateDirectories: true)
 
-            onFinished?(jsonString)
+            // unique filename
+            let usdzURL = scansFolderURL.appendingPathComponent("Room-\(UUID().uuidString).usdz")
+
+            // 2) Export USDZ
+            try finalResults.export(to: usdzURL, exportOptions: .mesh)
+
+            // 3) Also encode the CapturedRoom data as JSON (optional but useful)
+            let jsonEncoder = JSONEncoder()
+            let roomJsonData = try jsonEncoder.encode(finalResults)
+            let roomJsonString = String(data: roomJsonData, encoding: .utf8) ?? "{}"
+
+            // 4) Build a simple payload object for JS
+            let payload: [String: Any] = [
+                "usdzPath": usdzURL.path,    // native file path
+                "roomJson": roomJsonString   // json string of CapturedRoom
+            ]
+
+            let payloadData = try JSONSerialization.data(withJSONObject: payload, options: [])
+            let payloadString = String(data: payloadData, encoding: .utf8) ?? "{}"
+
+            // 5) Send back to React Native and close the scanner
+            onFinished?(payloadString)
             dismiss(animated: true, completion: nil)
+
         } catch {
-            print("Encoding error: \(error)")
-            onFinished?("{}")
+            print("Export error: \(error)")
+            onFinished?("{\"error\":\"export_failed\"}")
             dismiss(animated: true, completion: nil)
         }
     }
-    
+
     private func setActiveNavBar() {
         UIView.animate(withDuration: 1.0, animations: {
             self.cancelButton?.tintColor = .white
