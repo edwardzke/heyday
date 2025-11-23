@@ -45,42 +45,6 @@ export default function DashboardScreen() {
     fetchPlants();
   }, []);
 
-  // const plantOverviews = useMemo(
-  //   () => [
-  //     {
-  //       id: 'greenhouse-west',
-  //       title: 'West Greenhouse',
-  //       status: 'Thriving',
-  //       note: 'Rotate monsteras 45° tomorrow to balance sunlight.',
-  //       metrics: [
-  //         { label: 'Temp', value: '72°F' },
-  //         { label: 'Humidity', value: '61%' },
-  //       ],
-  //     },
-  //     {
-  //       id: 'atrium-fern',
-  //       title: 'Atrium Fern Shelf',
-  //       status: 'Needs mist',
-  //       note: 'Morning humidity dipped below range. Schedule a midday mist.',
-  //       metrics: [
-  //         { label: 'Temp', value: '68°F' },
-  //         { label: 'Humidity', value: '47%' },
-  //       ],
-  //     },
-  //     {
-  //       id: 'kitchen-herbs',
-  //       title: 'Kitchen Herb Wall',
-  //       status: 'Stable',
-  //       note: 'Clip basil tops and log nutrient mix after dinner prep.',
-  //       metrics: [
-  //         { label: 'Temp', value: '70°F' },
-  //         { label: 'Humidity', value: '54%' },
-  //       ],
-  //     },
-  //   ],
-  //   []
-  // );
-
   const todoItems = useMemo(
     () => [
       {
@@ -255,35 +219,6 @@ export default function DashboardScreen() {
                 </View>
               ))}
           </View>
-          {/* <View style={styles.card}>
-            <Text style={styles.cardTitle}>Plant overviews</Text>
-            {plantOverviews.map((plant) => (
-              <View key={plant.id} style={styles.plantCard}>
-                <View style={styles.plantHeader}>
-                  <View>
-                    <Text style={styles.plantTitle}>{plant.title}</Text>
-                    <Text style={styles.plantStatus}>{plant.status}</Text>
-                  </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={openWebDashboard}
-                    style={styles.manageLink}
-                  >
-                    <Text style={styles.manageLinkLabel}>Manage</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.metricRow}>
-                  {plant.metrics.map((metric) => (
-                    <View key={metric.label} style={styles.metric}>
-                      <Text style={styles.metricLabel}>{metric.label}</Text>
-                      <Text style={styles.metricValue}>{metric.value}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.plantNote}>{plant.note}</Text>
-              </View>
-            ))}
-          </View> */}
         </ScrollView>
 
         {menuOpen && (
@@ -342,32 +277,11 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          {/*
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={openWebDashboard}
-            style={styles.menuCTA}
-          >
-            <Text style={styles.menuCTALabel}>Open on web</Text>
-          </TouchableOpacity>
-          */}
         </Animated.View>
 
         <View
           style={[styles.topBar, { top: -48, height: topBarHeight }]}
         >
-          {/*
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.9}
-            onPress={() =>
-              Alert.alert('Placeholder', 'Quick actions will appear here soon.')
-            }
-            style={[styles.topButton, styles.placeholderButton]}
-          >
-            <Text style={styles.topButtonLabel}>H</Text>
-          </TouchableOpacity>
-          */}
 
           <View style={styles.topBarTitles}>
             <Text style={styles.headerEyebrow}>Welcome back</Text>
@@ -398,7 +312,7 @@ export default function DashboardScreen() {
         accessibilityRole="button"
         activeOpacity={0.9}
         style={styles.bottomFab}
-        onPress={() => router.push('/camerapage')}
+        onPress={() => router.push('/roomscan')}
       >
         <Text style={styles.fabLabel}>📷</Text>
       </TouchableOpacity>
