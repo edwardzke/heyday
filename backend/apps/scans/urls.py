@@ -16,9 +16,4 @@ urlpatterns = [
         views.start_processing,
         name="scan-processing-start",
     ),
-    path(
-        "sessions/<uuid:session_id>/floorplan/manual/",
-        views.manual_floorplan,
-        name="scan-floorplan-manual",
-    ),
 ]

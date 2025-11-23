@@ -11,13 +11,11 @@ from .models import ProcessingJob, RoomScanSession, ScanArtifact
 from .serializers import (
     ArtifactUploadSerializer,
     CreateRoomScanSessionSerializer,
-    ManualFloorplanSerializer,
     ProcessingJobSerializer,
     RoomScanSessionSerializer,
     ScanArtifactSerializer,
 )
 from .services import ArtifactChunk, enqueue_processing_job, generate_upload_token, persist_artifact_chunk
-from .floorplan import generate_floorplan, generate_floorplan_from_points
 
 
 @api_view(["GET", "POST"])
@@ -87,33 +85,11 @@ def start_processing(request, session_id):
         "1",
         "yes",
     )
-    want_floorplan = str(request.data.get("generate_floorplan", "")).lower() in (
-        "true",
-        "1",
-        "yes",
-    )
-    floorplan_artifact = None
 
     job = enqueue_processing_job(session)
     if auto_complete:
         job.status = ProcessingJob.Status.RUNNING
         job.save(update_fields=["status", "updated_at"])
-        floorplan_artifact = None
-        if want_floorplan:
-            try:
-                floorplan_artifact = generate_floorplan(session)
-            except Exception as exc:  # pylint: disable=broad-except
-                job.mark_failed(message=f"Floorplan generation failed: {exc}")
-                session.status = RoomScanSession.Status.FAILED
-                session.save(update_fields=["status", "updated_at"])
-                return Response(
-                    {
-                        "job": ProcessingJobSerializer(job).data,
-                        "session": RoomScanSessionSerializer(session).data,
-                        "error": str(exc),
-                    },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
 
         job.mark_complete(message="Processing stubbed on this environment.")
         session.status = RoomScanSession.Status.READY
@@ -123,41 +99,7 @@ def start_processing(request, session_id):
         {
             "job": ProcessingJobSerializer(job).data,
             "session": RoomScanSessionSerializer(session).data,
-            "floorplan": floorplan_artifact
-            and ScanArtifactSerializer(floorplan_artifact).data,
+            "floorplan": None,
         },
         status=status.HTTP_202_ACCEPTED,
-    )
-
-
-@api_view(["POST"])
-def manual_floorplan(request, session_id):
-    """Allow users to submit a manual floorplan when automated generation fails."""
-    session = get_object_or_404(RoomScanSession, id=session_id)
-    payload = ManualFloorplanSerializer(data=request.data)
-    payload.is_valid(raise_exception=True)
-    points = [(pt["x"], pt["y"]) for pt in payload.validated_data["points"]]
-    scale = float(payload.validated_data.get("scale") or 1.0)
-    artifact = generate_floorplan_from_points(session, points, scale=scale)
-
-    job = ProcessingJob.objects.create(
-        session=session,
-        status=ProcessingJob.Status.COMPLETE,
-        message="Manual floorplan submitted",
-        started_at=timezone.now(),
-        completed_at=timezone.now(),
-    )
-
-    session.status = RoomScanSession.Status.READY
-    if not session.label and payload.validated_data.get("label"):
-        session.label = payload.validated_data["label"]
-    session.save(update_fields=["status", "label", "updated_at"])
-
-    return Response(
-        {
-            "session": RoomScanSessionSerializer(session).data,
-            "floorplan": ScanArtifactSerializer(artifact).data,
-            "job": ProcessingJobSerializer(job).data,
-        },
-        status=status.HTTP_201_CREATED,
     )

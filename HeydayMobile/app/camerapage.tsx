@@ -11,7 +11,7 @@ export default function CameraPage() {
   const [loading, setLoading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const BACKEND_URL = "https://6140210fa1a4.ngrok-free.app/upload/classify/";
+  const BACKEND_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/classify/";
 
 
   useEffect(() => {

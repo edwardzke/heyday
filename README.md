@@ -1,38 +1,38 @@
-## Heyday Monorepo Scaffold
+## Heyday Monorepo
 
-Barebones structure to host the Heyday experience across Django, TypeScript + Tailwind, Swift, and Unity targets.
+Production scaffold hosting the Heyday experience across Django, React, Expo, and supporting services.
 
 ### Layout
-- `backend/` — Django REST backend with a single `health/` endpoint to extend.
-- `frontend/` — Vite + React + Tailwind shell ready to consume backend APIs or embed Unity WebGL builds.
-- `ios/` — Swift Package placeholder for SwiftUI components or an iOS host app.
-- `unity/` — Empty Unity project scaffold you can open in Unity Hub.
+- `backend/` — Django REST backend plus `recommendationEngine/` with Gemini + Supabase plant recs (`floorPlanRecs.py`, `Room.json` sample).
+- `frontend/` — Vite + React + Tailwind web shell.
+- `HeydayMobile/` — Expo/React Native app (see `launchExpo.sh`).
+- `docs/` — Project docs and design notes.
+- `render.yaml` — Render deployment manifest.
 
-### Quickstart
-1. **Backend**  
-   ```bash
-   cd backend
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install -r requirements.txt
-   python manage.py migrate
-   python manage.py runserver
-   ```
+### Build & Run
+- **Backend**
+  ```bash
+  cd backend
+  python3 -m venv .venv && source .venv/bin/activate
+  pip install -r requirements.txt  # includes supabase and python-dotenv
+  python manage.py migrate
+  python manage.py runserver  # http://localhost:8000
+  ```
+  Env vars for rec engine: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`.
 
-2. **Frontend**  
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   Vite proxies `/api/*` to the Django server on port `8000`.
+- **Frontend**
+  ```bash
+  cd frontend
+  npm install
+  npm run dev  # Vite dev server with /api proxy to :8000
+  ```
 
-3. **iOS (Swift)**  
-   - Open `ios` in Xcode or run `swift build` to validate the package.
-   - Add the package to an Xcode workspace once the native host is ready.
+- **Mobile (Expo)**
+  ```bash
+  ./launchExpo.sh
+  ```
 
-4. **Unity**  
-   - Open the `unity` folder in Unity Hub, choose your template, and let Unity populate the project files.
-
-### Next Steps
-- Replace the example SwiftUI view with production UI.
-- Flesh out authentication, persistence, and Unity embedding flows.
+### Recommendation Engine Notes
+- `backend/recommendationEngine/floorPlanRecs.py` ingests RoomPlan JSON (sample at `backend/recommendationEngine/Room.json`), merges user context from Supabase, and calls Gemini (`gemini-2.5-pro`) for per-room plant placements.
+- Pass an optional window orientation char (`N/S/E/W`) to `get_floor_plan_recommendations` (or `_summarize_roomplan`) so the summary tags windows with cardinal exposure to make light-aware prompts.
+- Output target: concise JSON keyed by room with plant picks, placement, and care notes; add validation/persistence as you harden the flow.

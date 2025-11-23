@@ -1,9 +1,11 @@
 """Core Django settings for the Heyday backend service."""
 from __future__ import annotations
 
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
+
+import dj_database_url
 from dotenv import load_dotenv
 
 
@@ -24,6 +26,8 @@ FRONTEND_DEV_SERVER_ORIGIN = os.environ.get(
 
 PLANTNET_API_KEY = os.environ.get("PLANTNET_API_KEY", "")
 
+PERENUAL_API_KEY = os.environ.get("PERENUAL_API_KEY", "")
+
 
 OPENWEATHER_API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
 OPENWEATHER_DEFAULT_LOCATION = os.environ.get(
@@ -34,7 +38,7 @@ OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 DEBUG = True
-ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1", ".ngrok-free.app"]
+ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1", ".ngrok-free.app", ".ngrok-free.dev"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -46,8 +50,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "apps.core",
-    "uploads",
-    "apps.scans",
+    "uploads"
 ]
 
 MIDDLEWARE = [
@@ -84,10 +87,10 @@ WSGI_APPLICATION = "heyday_backend.wsgi.application"
 ASGI_APPLICATION = "heyday_backend.asgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.environ.get("DJANGO_DB", str(BASE_DIR / "db.sqlite3")),
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get("DJANGO_DB", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600,
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -108,8 +111,8 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 if (FRONTEND_DIST_DIR / "assets").exists():
     STATICFILES_DIRS.append(FRONTEND_DIST_DIR)
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -122,5 +125,3 @@ CORS_ALLOWED_ORIGINS = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://loc
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOW_ALL_ORIGINS = True
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"

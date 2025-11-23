@@ -11,7 +11,7 @@ urlpatterns = [
     path("dashboard/", core_views.dashboard_page, name="dashboard-page"),
     path("admin/", admin.site.urls),
     path("api/", include("apps.core.urls")),
-    path("api/scans/", include("apps.scans.urls")),
+    #path("api/scans/", include("apps.scans.urls")),
     path("upload/", include("uploads.urls")),
 ]
 

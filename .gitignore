@@ -11,3 +11,7 @@ UserSettings/
 db.sqlite3
 .env
 node_modules/
+package-lock.json
+.venv/
+render.yaml
+backend/Procfile
