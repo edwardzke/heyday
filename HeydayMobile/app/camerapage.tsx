@@ -63,24 +63,33 @@ export default function CameraPage() {
 
       const response = await fetch(BACKEND_URL, {
         method: "POST",
-        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
-      let data = null;
+      let data: any = null;
+      let rawBody: string | null = null;
       try {
-        data = await response.json();
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          data = await response.json();
+        } else {
+          rawBody = await response.text();
+        }
       } catch (err) {
-        throw new Error("Invalid JSON returned from server");
+        rawBody = rawBody ?? "[unreadable response]";
+        console.error("❌ Failed to parse response:", err);
       }
 
-      if (!response.ok || data.error) {
-        const message = data?.error || `Server error ${response.status}`;
+      if (!response.ok || (data && data.error)) {
+        const message =
+          (data && data.error) ||
+          rawBody ||
+          `Server error ${response.status}`;
         setResult(`⚠️ ${message}`);
         return;
       }
 
-      if (data.class) {
+      if (data?.class) {
         setResult(
           `🌱 ${data.common_name || data.class}\nConfidence: ${(data.score * 100).toFixed(1)}%`
         );

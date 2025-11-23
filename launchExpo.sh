@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 BACKEND_VENV="$BACKEND_DIR/venv/bin/activate"
 EXPO_DIR="$ROOT_DIR/HeydayMobile"
+BACKEND_LOG="$BACKEND_DIR/.runserver.log"
 
 log() {
   echo "[launch-expo] $*"
@@ -20,12 +21,6 @@ cleanup() {
     wait "$BACKEND_PID" 2>/dev/null || true
   fi
 
-  if [[ -n "${EXPO_PID:-}" ]] && kill -0 "$EXPO_PID" 2>/dev/null; then
-    log "Stopping Expo server (pid $EXPO_PID)"
-    kill "$EXPO_PID" 2>/dev/null || true
-    wait "$EXPO_PID" 2>/dev/null || true
-  fi
-
   exit "$exit_code"
 }
 trap cleanup EXIT INT TERM
@@ -34,15 +29,22 @@ trap cleanup EXIT INT TERM
 [[ -d "$EXPO_DIR" ]] || { log "Missing Expo directory at $EXPO_DIR"; exit 1; }
 
 log "Starting Django backend..."
+if [[ -f "$BACKEND_VENV" ]]; then
+  # shellcheck disable=SC1090
+  source "$BACKEND_VENV"
+fi
+
 (
   cd "$BACKEND_DIR"
-  if [[ -f "$BACKEND_VENV" ]]; then
-    # shellcheck disable=SC1090
-    source "$BACKEND_VENV"
-  fi
-  python manage.py runserver
+  log "Backend logs -> $BACKEND_LOG"
+  PYTHONUNBUFFERED=1 python manage.py runserver 0.0.0.0:8000 >"$BACKEND_LOG" 2>&1
 ) &
 BACKEND_PID=$!
+sleep 1
+if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+  log "Backend failed to start; check $BACKEND_LOG"
+  exit 1
+fi
 
 
 log "Starting Expo dev server in foreground (interactive)..."
@@ -53,4 +55,3 @@ log "Starting Expo dev server in foreground (interactive)..."
 EXPO_EXIT_CODE=$?
 
 log "Expo exited with code $EXPO_EXIT_CODE"
-wait -n "$BACKEND_PID" || true

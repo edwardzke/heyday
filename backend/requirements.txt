@@ -5,3 +5,4 @@ httpx>=0.26,<0.28
 python-dotenv>=1.0,<2
 trimesh>=4,<5
 numpy>=1.26,<2
+requests>=2.31,<3
