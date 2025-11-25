@@ -28,11 +28,12 @@ export default function DashboardScreen() {
 
   const [plants, setPlants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchPlants = async () => {
       try {
-        const response = await fetch("https://8c33a40a6c4f.ngrok-free.app/upload/plants/");
+        const response = await fetch("https://imposingly-lighter-marylee.ngrok-free.dev/upload/plants/");
         const data = await response.json();
         setPlants(data.plants || []);
       } catch (err) {
@@ -393,14 +394,43 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* Camera button - Truly standalone, direct child of SafeAreaView */}
+      {/* Camera button with expandable menu */}
+      {cameraMenuOpen && (
+        <>
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.9}
+            style={[styles.bottomFab, styles.roomScanButton]}
+            onPress={() => {
+              setCameraMenuOpen(false);
+              router.push('/roomscan');
+            }}
+          >
+            <Text style={styles.fabLabel}>🏠</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.9}
+            style={[styles.bottomFab, styles.addPlantButton]}
+            onPress={() => {
+              setCameraMenuOpen(false);
+              router.push('/camerapage');
+            }}
+          >
+            <Text style={styles.fabLabel}>🌱</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Main camera button */}
       <TouchableOpacity
         accessibilityRole="button"
         activeOpacity={0.9}
         style={styles.bottomFab}
-        onPress={() => router.push('/camerapage')}
+        onPress={() => setCameraMenuOpen(!cameraMenuOpen)}
       >
-        <Text style={styles.fabLabel}>📷</Text>
+        <Text style={styles.fabLabel}>{cameraMenuOpen ? '×' : '📷'}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -640,6 +670,14 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
     zIndex: 50, // Higher than everything
+  },
+  roomScanButton: {
+    bottom: 120, // 80px above the main button (40 + 64 + 16)
+    backgroundColor: '#1a6b3d',
+  },
+  addPlantButton: {
+    bottom: 196, // 80px above button 1 (120 + 64 + 12)
+    backgroundColor: '#2d8f54',
   },
   fabLabel: {
     fontSize: 24,
