@@ -15,6 +15,8 @@ create table if not exists public.users (
   id uuid primary key
     references auth.users (id) on delete cascade,
   display_name text,
+  device_platform text not null default 'ios',
+  device_token text,
   created_at timestamptz not null default now()
 );
 
