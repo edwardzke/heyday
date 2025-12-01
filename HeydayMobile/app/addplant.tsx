@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { scheduleRepeatingWaterReminderForPlant, computeNextWaterDateString } from '../lib/plantNotifications';
 import {
   Alert,
   Image,
@@ -212,6 +213,12 @@ export default function AddPlantScreen() {
       if (error) {
         throw error;
       }
+
+      const notificationId = await  scheduleRepeatingWaterReminderForPlant(
+        data.id,
+        nickname.trim() || null,
+        data.watering_frequency_days
+      );
 
       Alert.alert(
         'Plant Added!',
