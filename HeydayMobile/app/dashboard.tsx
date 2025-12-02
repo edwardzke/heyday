@@ -158,6 +158,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('Good morning');
   const [weather, setWeather] = useState({ temp: '68°F', location: 'Los Angeles' });
+  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
   // Set greeting based on time of day
   useEffect(() => {
@@ -370,10 +371,43 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
 
+      {/* Camera Menu Options (shown when expanded) */}
+      {cameraMenuOpen && (
+        <View style={styles.cameraMenuContainer}>
+          {/* Scan Space Option */}
+          <TouchableOpacity
+            style={styles.cameraMenuOption}
+            onPress={() => {
+              setCameraMenuOpen(false);
+              // TODO: Navigate to room scan flow
+              router.push('/roomscan');
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cube-outline" size={24} color={colors.dark} />
+            <Text style={styles.cameraMenuText}>Scan space</Text>
+          </TouchableOpacity>
+
+          {/* Identify Plant Option */}
+          <TouchableOpacity
+            style={styles.cameraMenuOption}
+            onPress={() => {
+              setCameraMenuOpen(false);
+              // TODO: Navigate to plant identification flow
+              router.push('/addplant');
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="search-outline" size={24} color={colors.dark} />
+            <Text style={styles.cameraMenuText}>Identify plant</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Camera FAB */}
       <TouchableOpacity
         style={styles.cameraFab}
-        onPress={() => router.push('/addplant')}
+        onPress={() => setCameraMenuOpen(!cameraMenuOpen)}
         activeOpacity={0.8}
       >
         <Ionicons name="camera" size={28} color={colors.white} />
@@ -526,7 +560,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   
-  // Camera FAB
+  // Camera FAB & Menu
+  cameraMenuContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: 172,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  cameraMenuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  cameraMenuText: {
+    fontFamily: 'System',
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.dark,
+    lineHeight: 20,
+  },
   cameraFab: {
     position: 'absolute',
     right: 16,
