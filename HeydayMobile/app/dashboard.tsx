@@ -392,8 +392,8 @@ export default function DashboardScreen() {
             style={styles.cameraMenuOption}
             onPress={() => {
               setCameraMenuOpen(false);
-              // TODO: Navigate to plant identification flow
-              router.push('/addplant');
+              // Navigate to camera page for plant identification
+              router.push('/camerapage');
             }}
             activeOpacity={0.8}
           >
