@@ -136,6 +136,19 @@ export default function CameraPage() {
           >
             <Text style={styles.buttonText}>↩️ Retake</Text>
           </TouchableOpacity>
+          {imageUri && (
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/addplant",
+                  params: { photoUri: imageUri },
+                })
+              }
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.buttonText}>➕ Manually Add Plant</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -157,6 +170,13 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 10,
+  },
+  secondaryButton: {
+    backgroundColor: "#388E3C",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    marginTop: 10,
   },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 18 },
   resultContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
