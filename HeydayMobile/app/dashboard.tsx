@@ -1,743 +1,646 @@
-import React, { useCallback, useMemo, useRef, useState, useEffect} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  Linking,
-  PanResponder,
+  View,
+  Text,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
   Image,
+  StatusBar,
+  Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { useSupabaseUser } from '../hooks/useSupabaseUser';
 
-const DASHBOARD_URL = 'https://app.heyday.so/dashboard';
-const MENU_WIDTH = 320;
+// Design tokens from Figma
+const colors = {
+  background: '#FCF7F4',
+  primary: '#349552',
+  dark: '#191919',
+  grey: '#B9B6B4',
+  white: '#FFFFFF',
+  border: 'rgba(25, 25, 25, 0.5)',
+};
 
-export default function DashboardScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuTranslateX = useRef(new Animated.Value(MENU_WIDTH)).current;
-  const dragStart = useRef(MENU_WIDTH);
-  const { width: screenWidth } = Dimensions.get('window');
+// Types
+interface PlantItem {
+  id: string;
+  nickname: string | null;
+  location: string;
+  image_url: string | null;
+  needs_water: boolean;
+  watered_today: boolean;
+}
 
-  const [plants, setPlants] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
+// Bottom Tab Navigation Component
+type TabName = 'Home' | 'Schedule' | 'Plants' | 'Profile';
 
-  useEffect(() => {
-    const fetchPlants = async () => {
-      try {
-        const response = await fetch("https://imposingly-lighter-marylee.ngrok-free.dev/upload/plants/");
-        const data = await response.json();
-        setPlants(data.plants || []);
-      } catch (err) {
-        console.error("Failed to fetch plants:", err);
-        Alert.alert("Error", "Unable to load your plants.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPlants();
-  }, []);
-
-  // const plantOverviews = useMemo(
-  //   () => [
-  //     {
-  //       id: 'greenhouse-west',
-  //       title: 'West Greenhouse',
-  //       status: 'Thriving',
-  //       note: 'Rotate monsteras 45° tomorrow to balance sunlight.',
-  //       metrics: [
-  //         { label: 'Temp', value: '72°F' },
-  //         { label: 'Humidity', value: '61%' },
-  //       ],
-  //     },
-  //     {
-  //       id: 'atrium-fern',
-  //       title: 'Atrium Fern Shelf',
-  //       status: 'Needs mist',
-  //       note: 'Morning humidity dipped below range. Schedule a midday mist.',
-  //       metrics: [
-  //         { label: 'Temp', value: '68°F' },
-  //         { label: 'Humidity', value: '47%' },
-  //       ],
-  //     },
-  //     {
-  //       id: 'kitchen-herbs',
-  //       title: 'Kitchen Herb Wall',
-  //       status: 'Stable',
-  //       note: 'Clip basil tops and log nutrient mix after dinner prep.',
-  //       metrics: [
-  //         { label: 'Temp', value: '70°F' },
-  //         { label: 'Humidity', value: '54%' },
-  //       ],
-  //     },
-  //   ],
-  //   []
-  // );
-
-  const todoItems = useMemo(
-    () => [
-      {
-        id: 'todo-sync',
-        title: 'Sync today’s tasks',
-        detail: 'Review the desktop dashboard before noon for new follow-ups.',
-      },
-      {
-        id: 'todo-nutrients',
-        title: 'Update nutrient schedule',
-        detail: 'Confirm this week’s fertiliser mix and log dosage changes.',
-      },
-      {
-        id: 'todo-journal',
-        title: 'Capture journal photos',
-        detail: 'Add growth shots to the plant journal gallery tonight.',
-      },
-    ],
-    []
-  );
-
-  const openWebDashboard = () => {
-    Linking.openURL(DASHBOARD_URL).catch(() => {
-      Alert.alert(
-        'Unable to open dashboard',
-        'Visit the Heyday web dashboard from your browser to continue.'
-      );
-    });
-  };
-
-  const fabBottom = Math.max(insets.bottom + 20, 36);
-  const topBarHeight = 72;
-
-  const animateMenu = useCallback(
-    (open: boolean) => {
-      setMenuOpen(open);
-      Animated.timing(menuTranslateX, {
-        toValue: open ? 0 : MENU_WIDTH,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
-    },
-    [menuTranslateX]
-  );
-
-  const toggleMenu = () => {
-    animateMenu(!menuOpen);
-  };
-
-  const panResponder = useMemo(() => {
-    return PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        const { dx, dy, moveX } = gesture;
-        if (Math.abs(dx) < Math.abs(dy)) {
-          return false;
-        }
-        if (menuOpen) {
-          return Math.abs(dx) > 6;
-        }
-        const fromEdge = moveX > screenWidth - 32;
-        return fromEdge && dx < -8;
-      },
-      onPanResponderGrant: () => {
-        dragStart.current = menuOpen ? 0 : MENU_WIDTH;
-      },
-      onPanResponderMove: (_, { dx }) => {
-        const base = dragStart.current;
-        let next = base + dx;
-        next = Math.min(MENU_WIDTH, Math.max(0, next));
-        menuTranslateX.setValue(next);
-      },
-      onPanResponderRelease: (_, { dx, vx }) => {
-        const base = dragStart.current;
-        let next = base + dx;
-        next = Math.min(MENU_WIDTH, Math.max(0, next));
-        const velocity = vx ?? 0;
-        const shouldOpen =
-          velocity < -0.3
-            ? true
-            : velocity > 0.3
-            ? false
-            : next < MENU_WIDTH / 2;
-        animateMenu(shouldOpen);
-      },
-      onPanResponderTerminate: () => {
-        animateMenu(menuOpen);
-      },
-    });
-  }, [animateMenu, menuOpen, menuTranslateX, screenWidth]);
+function BottomNav({ activeTab, onTabPress }: { activeTab: TabName; onTabPress: (tab: TabName) => void }) {
+  const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }[] = [
+    { name: 'Home', icon: 'home', iconOutline: 'home-outline' },
+    { name: 'Schedule', icon: 'calendar', iconOutline: 'calendar-outline' },
+    { name: 'Plants', icon: 'leaf', iconOutline: 'leaf-outline' },
+    { name: 'Profile', icon: 'person-circle', iconOutline: 'person-circle-outline' },
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.container} {...panResponder.panHandlers}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: insets.top - 16,
-              paddingBottom: fabBottom + 8,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-          bounces
-        >
-          <View style={styles.card}>
-            <View style={styles.todoInlineHeader}>
-              <Text style={styles.cardTitle}>To-do sync</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={openWebDashboard}
-                style={styles.todoInlineCTA}
-              >
-                <Text style={styles.todoInlineCTALabel}>Open web</Text>
-              </TouchableOpacity>
+    <View style={styles.bottomNav}>
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.name;
+        return (
+          <TouchableOpacity
+            key={tab.name}
+            style={styles.navTab}
+            onPress={() => onTabPress(tab.name)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isActive ? tab.icon : tab.iconOutline}
+              size={24}
+              color={isActive ? colors.primary : colors.dark}
+            />
+            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+              {tab.name}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// Check Button Component
+function CheckButton({ 
+  checked, 
+  onPress 
+}: { 
+  checked: boolean; 
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.checkButton, checked && styles.checkButtonChecked]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {checked && (
+        <Ionicons name="checkmark" size={24} color={colors.white} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// Note Taking Button Component
+function NoteTakingButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={styles.noteButton}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Ionicons name="create-outline" size={24} color={colors.dark} />
+    </TouchableOpacity>
+  );
+}
+
+// Plant Row Component
+function PlantRow({
+  plant,
+  showCheckbox,
+  checked,
+  onCheck,
+  onNote,
+}: {
+  plant: PlantItem;
+  showCheckbox?: boolean;
+  checked?: boolean;
+  onCheck?: () => void;
+  onNote?: () => void;
+}) {
+  return (
+    <View style={styles.plantRow}>
+      <View style={styles.plantInfo}>
+        <View style={styles.plantImageContainer}>
+          {plant.image_url ? (
+            <Image source={{ uri: plant.image_url }} style={styles.plantImage} />
+          ) : (
+            <View style={[styles.plantImage, styles.plantImagePlaceholder]}>
+              <Ionicons name="leaf" size={24} color={colors.grey} />
             </View>
-            {todoItems.length > 0 && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={openWebDashboard}
-                style={styles.todoInlineItem}
-              >
-                <View style={styles.todoInlineBullet} />
-                <View style={styles.todoInlineCopy}>
-                  <Text style={styles.todoInlineTitle}>{todoItems[0].title}</Text>
-                  <Text style={styles.todoInlineDetail}>{todoItems[0].detail}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Plant overviews</Text>
-
-            {loading && <Text>Loading...</Text>}
-
-            {!loading && plants.length === 0 && (
-              <Text style={{ color: 'rgba(15,49,29,0.6)' }}>
-                You haven’t added any plants yet 🌱
-              </Text>
-            )}
-
-            {!loading &&
-              plants.map((plant) => (
-                <View key={plant.id} style={styles.plantCard}>
-                  <View style={styles.plantHeader}>
-                    <View>
-                      <Text style={styles.plantTitle}>
-                        {plant.nickname || plant.species}
-                      </Text>
-                      <Text style={styles.plantStatus}>Age: {plant.age || "Unknown"}</Text>
-                    </View>
-
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      onPress={() => Alert.alert("Coming soon", "Edit or manage plant")}
-                      style={styles.manageLink}
-                    >
-                      <Text style={styles.manageLinkLabel}>Manage</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {plant.photo_url ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Image
-                        source={{ uri: plant.photo_url }}
-                        style={{ width: '100%', height: 160, borderRadius: 12, marginTop: 10 }}
-                      />
-                    </View>
-                  ) : (
-                    <Text style={styles.plantNote}>No photo uploaded.</Text>
-                  )}
-                </View>
-              ))}
-          </View>
-          {/* <View style={styles.card}>
-            <Text style={styles.cardTitle}>Plant overviews</Text>
-            {plantOverviews.map((plant) => (
-              <View key={plant.id} style={styles.plantCard}>
-                <View style={styles.plantHeader}>
-                  <View>
-                    <Text style={styles.plantTitle}>{plant.title}</Text>
-                    <Text style={styles.plantStatus}>{plant.status}</Text>
-                  </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={openWebDashboard}
-                    style={styles.manageLink}
-                  >
-                    <Text style={styles.manageLinkLabel}>Manage</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.metricRow}>
-                  {plant.metrics.map((metric) => (
-                    <View key={metric.label} style={styles.metric}>
-                      <Text style={styles.metricLabel}>{metric.label}</Text>
-                      <Text style={styles.metricValue}>{metric.value}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.plantNote}>{plant.note}</Text>
-              </View>
-            ))}
-          </View> */}
-        </ScrollView>
-
-        {menuOpen && (
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => animateMenu(false)}
-            style={styles.backdrop}
-            {...panResponder.panHandlers}
-          />
-        )}
-
-        <Animated.View
-          pointerEvents={menuOpen ? 'auto' : 'none'}
-          style={[
-            styles.sideMenu,
-            {
-              transform: [{ translateX: menuTranslateX }],
-              paddingBottom: insets.bottom + 24,
-            },
-          ]}
-        >
-          <Text style={styles.sideMenuTitle}>Menu</Text>
-          <View style={styles.sideMenuList}>
-            {[
-              {
-                id: 'profile',
-                label: 'User profile',
-                description: 'Edit personal info and avatar.',
-              },
-              {
-                id: 'account',
-                label: 'Account details',
-                description: 'Manage email, password, and sign-in devices.',
-              },
-              {
-                id: 'settings',
-                label: 'Settings',
-                description: 'Adjust notifications and integrations.',
-              },
-              {
-                id: 'preferences',
-                label: 'Preferences',
-                description: 'Tune themes and accessibility options.',
-              },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                accessibilityRole="button"
-                onPress={() =>
-                  Alert.alert(item.label, 'Coming soon to mobile! Visit the web dashboard for full controls.')
-                }
-                style={styles.menuTodoItem}
-              >
-                <Text style={styles.menuTodoTitle}>{item.label}</Text>
-                <Text style={styles.menuTodoDetail}>{item.description}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {/*
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={openWebDashboard}
-            style={styles.menuCTA}
-          >
-            <Text style={styles.menuCTALabel}>Open on web</Text>
-          </TouchableOpacity>
-          */}
-        </Animated.View>
-
-        <View
-          style={[styles.topBar, { top: -48, height: topBarHeight }]}
-        >
-          {/*
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.9}
-            onPress={() =>
-              Alert.alert('Placeholder', 'Quick actions will appear here soon.')
-            }
-            style={[styles.topButton, styles.placeholderButton]}
-          >
-            <Text style={styles.topButtonLabel}>H</Text>
-          </TouchableOpacity>
-          */}
-
-          <View style={styles.topBarTitles}>
-            <Text style={styles.headerEyebrow}>Welcome back</Text>
-            <Text style={styles.headerTitle}>Your greenhouse pulse</Text>
-          </View>
-
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.9}
-            onPress={toggleMenu}
-            style={[styles.topButton, styles.menuButton]}
-          >
-            {menuOpen ? (
-              <Text style={styles.topButtonLabel}>×</Text>
-            ) : (
-              <View style={styles.menuIcon}>
-                <View style={styles.menuLine} />
-                <View style={styles.menuLine} />
-                <View style={styles.menuLine} />
-              </View>
-            )}
-          </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.plantTextContainer}>
+          <Text style={styles.plantName}>{plant.nickname || 'Unnamed Plant'}</Text>
+          <Text style={styles.plantLocation}>{plant.location}</Text>
         </View>
       </View>
+      {showCheckbox && onCheck && (
+        <CheckButton checked={checked || false} onPress={onCheck} />
+      )}
+      {!showCheckbox && onNote && (
+        <NoteTakingButton onPress={onNote} />
+      )}
+    </View>
+  );
+}
 
-      {/* Camera button with expandable menu */}
+// Main Dashboard Component
+export default function DashboardScreen() {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+  const [activeTab, setActiveTab] = useState<TabName>('Home');
+  const [plantsToWater, setPlantsToWater] = useState<PlantItem[]>([]);
+  const [allPlants, setAllPlants] = useState<PlantItem[]>([]);
+  const [wateredPlants, setWateredPlants] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [greeting, setGreeting] = useState('Good morning');
+  const [weather, setWeather] = useState({ temp: '68°F', location: 'Los Angeles' });
+  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
+
+  // Set greeting based on time of day
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting('Good morning');
+    } else if (hour < 17) {
+      setGreeting('Good afternoon');
+    } else {
+      setGreeting('Good evening');
+    }
+  }, []);
+
+  // Fetch plants from Supabase
+  const fetchPlants = useCallback(async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_plants')
+        .select(`
+          id,
+          nickname,
+          location_meta,
+          next_water_at,
+          last_watered_at,
+          plants (
+            default_image_url,
+            common_name
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      const formattedPlants: PlantItem[] = (data || []).map((plant: any) => ({
+        id: plant.id,
+        nickname: plant.nickname || plant.plants?.common_name || 'Unnamed Plant',
+        location: plant.location_meta?.room || 'Unknown location',
+        image_url: plant.plants?.default_image_url || null,
+        needs_water: plant.next_water_at ? plant.next_water_at <= today : false,
+        watered_today: plant.last_watered_at === today,
+      }));
+
+      setAllPlants(formattedPlants);
+      setPlantsToWater(formattedPlants.filter(p => p.needs_water && !p.watered_today));
+      
+      // Mark already watered plants
+      const alreadyWatered = new Set(
+        formattedPlants.filter(p => p.watered_today).map(p => p.id)
+      );
+      setWateredPlants(alreadyWatered);
+    } catch (error) {
+      console.error('Error fetching plants:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchPlants();
+  }, [fetchPlants]);
+
+  // Handle watering a plant
+  const handleWaterPlant = async (plantId: string) => {
+    const newWatered = new Set(wateredPlants);
+    
+    if (newWatered.has(plantId)) {
+      newWatered.delete(plantId);
+    } else {
+      newWatered.add(plantId);
+      
+      // Update in Supabase
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Get the watering frequency to calculate next water date
+        const { data: plantData } = await supabase
+          .from('user_plants')
+          .select('watering_frequency_days')
+          .eq('id', plantId)
+          .single();
+        
+        const frequencyDays = plantData?.watering_frequency_days || 7;
+        const nextWaterDate = new Date();
+        nextWaterDate.setDate(nextWaterDate.getDate() + frequencyDays);
+        
+        await supabase
+          .from('user_plants')
+          .update({
+            last_watered_at: today,
+            next_water_at: nextWaterDate.toISOString().split('T')[0],
+          })
+          .eq('id', plantId);
+      } catch (error) {
+        console.error('Error updating watered status:', error);
+      }
+    }
+    
+    setWateredPlants(newWatered);
+  };
+
+  // Handle adding a note
+  const handleAddNote = (plantId: string, plantName: string) => {
+    router.push({
+      pathname: '/notes',
+      params: { plantId, plantName },
+    });
+  };
+
+  // Handle tab navigation
+  const handleTabPress = (tab: TabName) => {
+    setActiveTab(tab);
+    
+    switch (tab) {
+      case 'Plants':
+        // Could navigate to a plants list screen
+        break;
+      case 'Profile':
+        // Could navigate to profile
+        break;
+      case 'Schedule':
+        // Could navigate to schedule
+        break;
+    }
+  };
+
+  // Get display plants (limit to 4 for each section)
+  const displayPlantsToWater = plantsToWater.slice(0, 4);
+  const displayAllPlants = allPlants.slice(0, 4);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <View style={styles.weatherRow}>
+            <Ionicons name="sunny" size={18} color={colors.dark} />
+            <Text style={styles.weatherText}>
+              <Text style={styles.weatherTemp}>{weather.temp}/</Text>
+              <Text style={styles.weatherLocation}>{weather.location}</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* Water Section */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Water</Text>
+            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plants to water')}>
+              <Text style={styles.seeAll}>See all →</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.plantList}>
+            {loading ? (
+              <Text style={styles.loadingText}>Loading plants...</Text>
+            ) : displayPlantsToWater.length > 0 ? (
+              displayPlantsToWater.map((plant) => (
+                <PlantRow
+                  key={plant.id}
+                  plant={plant}
+                  showCheckbox
+                  checked={wateredPlants.has(plant.id)}
+                  onCheck={() => handleWaterPlant(plant.id)}
+                />
+              ))
+            ) : (
+              <Text style={styles.emptyText}>All plants are watered! 🎉</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Progress Update Section */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Progress Update</Text>
+            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plant progress')}>
+              <Text style={styles.seeAll}>See all →</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.plantList}>
+            {loading ? (
+              <Text style={styles.loadingText}>Loading plants...</Text>
+            ) : displayAllPlants.length > 0 ? (
+              displayAllPlants.map((plant) => (
+                <PlantRow
+                  key={plant.id}
+                  plant={plant}
+                  onNote={() => handleAddNote(plant.id, plant.nickname || 'Plant')}
+                />
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No plants yet. Add your first plant!</Text>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Camera Menu Options (shown when expanded) */}
       {cameraMenuOpen && (
-        <>
+        <View style={styles.cameraMenuContainer}>
+          {/* Scan Space Option */}
           <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.9}
-            style={[styles.bottomFab, styles.roomScanButton]}
+            style={styles.cameraMenuOption}
             onPress={() => {
               setCameraMenuOpen(false);
+              // TODO: Navigate to room scan flow
               router.push('/roomscan');
             }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.fabLabel}>🏠</Text>
+            <Ionicons name="cube-outline" size={24} color={colors.dark} />
+            <Text style={styles.cameraMenuText}>Scan space</Text>
           </TouchableOpacity>
 
+          {/* Identify Plant Option */}
           <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.9}
-            style={[styles.bottomFab, styles.addPlantButton]}
+            style={styles.cameraMenuOption}
             onPress={() => {
               setCameraMenuOpen(false);
+              // Navigate to camera page for plant identification
               router.push('/camerapage');
             }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.fabLabel}>🌱</Text>
+            <Ionicons name="search-outline" size={24} color={colors.dark} />
+            <Text style={styles.cameraMenuText}>Identify plant</Text>
           </TouchableOpacity>
-        </>
+        </View>
       )}
 
-      {/* Main camera button */}
+      {/* Camera FAB */}
       <TouchableOpacity
-        accessibilityRole="button"
-        activeOpacity={0.9}
-        style={styles.bottomFab}
+        style={styles.cameraFab}
         onPress={() => setCameraMenuOpen(!cameraMenuOpen)}
+        activeOpacity={0.8}
       >
-        <Text style={styles.fabLabel}>{cameraMenuOpen ? '×' : '📷'}</Text>
+        <Ionicons name="camera" size={28} color={colors.white} />
       </TouchableOpacity>
+
+      {/* Bottom Navigation */}
+      <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#eef6f1',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#eef6f1',
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    gap: 24,
-  },
-  headerEyebrow: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: 'rgba(15, 49, 29, 0.6)',
-    textAlign: 'left',
-  },
-  headerTitle: {
-    marginTop: 6,
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#0f311d',
-    textAlign: 'left',
-    flexWrap: 'wrap',
-  },
-  card: {
-    padding: 20,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    shadowColor: '#0b4d26',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
-    gap: 18,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f311d',
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: 'rgba(15, 49, 29, 0.6)',
-    marginTop: 2,
-  },
-  plantCard: {
-    borderRadius: 18,
-    padding: 16,
-    backgroundColor: 'rgba(11, 77, 38, 0.07)',
-    gap: 14,
-  },
-  plantHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  plantTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0b4d26',
-  },
-  plantStatus: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4b8f63',
-  },
-  manageLink: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: '#0b4d26',
-  },
-  manageLinkLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#f5f7f4',
-    letterSpacing: 0.4,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    gap: 24,
-    flexWrap: 'wrap',
-  },
-  metric: {
-    gap: 4,
-  },
-  metricLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: 'rgba(15, 49, 29, 0.55)',
-  },
-  metricValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f311d',
-  },
-  plantNote: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(15, 49, 29, 0.7)',
-  },
-  todoInlineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  todoInlineCTA: {
-    borderRadius: 999,
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#0b4d26',
+    paddingTop: 16,
+    paddingBottom: 100,
+    gap: 40,
   },
-  todoInlineCTALabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f5f7f4',
-  },
-  todoInlineItem: {
-    marginTop: 18,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  
+  // Header
+  header: {
     gap: 12,
   },
-  todoInlineBullet: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#0b4d26',
-    marginTop: 6,
+  greeting: {
+    fontFamily: 'System',
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.dark,
+    lineHeight: 42,
   },
-  todoInlineCopy: {
-    flex: 1,
-    gap: 4,
+  weatherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  todoInlineTitle: {
-    fontSize: 15,
+  weatherText: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  weatherTemp: {
+    fontWeight: '500',
+    color: colors.dark,
+  },
+  weatherLocation: {
+    fontWeight: '400',
+    color: colors.dark,
+  },
+  
+  // Cards
+  card: {
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 24,
+    padding: 24,
+    gap: 20,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontFamily: 'System',
+    fontSize: 24,
     fontWeight: '600',
-    color: '#0f311d',
+    color: colors.dark,
+    lineHeight: 28,
   },
-  todoInlineDetail: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(15, 49, 29, 0.65)',
+  seeAll: {
+    fontSize: 12,
+    color: colors.dark,
+    textDecorationLine: 'underline',
+    lineHeight: 16,
   },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15, 49, 29, 0.25)',
+  
+  // Plant List
+  plantList: {
+    gap: 12,
   },
-  topBar: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    borderRadius: 4,
-    backgroundColor: '#eef6f1',
+  plantRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    shadowColor: '#0b4d26',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
-    zIndex: 30,
   },
-  topBarTitles: {
+  plantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    marginHorizontal: 8,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
   },
-  topButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#0b4d26',
+  plantImageContainer: {
+    width: 56,
+    height: 56,
+  },
+  plantImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  plantImagePlaceholder: {
+    backgroundColor: colors.grey,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0b4d26',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 6,
   },
-  topButtonLabel: {
+  plantTextContainer: {
+    flex: 1,
+  },
+  plantName: {
+    fontFamily: 'System',
     fontSize: 16,
-    fontWeight: '600',
-    color: '#f5f7f4',
-    letterSpacing: 0.6,
+    fontWeight: '500',
+    color: colors.dark,
+    lineHeight: 20,
   },
-  placeholderButton: {
-    backgroundColor: '#0b4d26',
+  plantLocation: {
+    fontFamily: 'System',
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.dark,
+    lineHeight: 16,
   },
-  menuButton: {
-    backgroundColor: '#0b4d26',
+  
+  // Buttons
+  checkButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  menuIcon: {
-    width: 18,
-    height: 12,
-    justifyContent: 'space-between',
+  checkButtonChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  menuLine: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: '#f5f7f4',
+  noteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.grey,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bottomFab: {
+  
+  // Camera FAB & Menu
+  cameraMenuContainer: {
     position: 'absolute',
-    right: 40,
-    bottom: 40,
+    right: 16,
+    bottom: 172,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  cameraMenuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  cameraMenuText: {
+    fontFamily: 'System',
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.dark,
+    lineHeight: 20,
+  },
+  cameraFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 100,
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#0b4d26',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0b4d26',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 6,
-    zIndex: 50, // Higher than everything
   },
-  roomScanButton: {
-    bottom: 120, // 80px above the main button (40 + 64 + 16)
-    backgroundColor: '#1a6b3d',
+  
+  // Bottom Navigation
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+    paddingBottom: 34,
+    paddingHorizontal: 0,
   },
-  addPlantButton: {
-    bottom: 196, // 80px above button 1 (120 + 64 + 12)
-    backgroundColor: '#2d8f54',
+  navTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
-  fabLabel: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#f5f7f4',
-  },
-  sideMenu: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 280,
-    bottom: 0,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 20,
-    paddingTop: 48,
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
-    shadowColor: '#0b4d26',
-    shadowOffset: { width: -8, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-    gap: 16,
-    zIndex: 30,
-  },
-  sideMenuTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0f311d',
-  },
-  sideMenuList: {
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  menuTodoItem: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(11, 77, 38, 0.12)',
-  },
-  menuTodoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f311d',
-    marginBottom: 4,
-  },
-  menuTodoDetail: {
-    fontSize: 13,
+  navLabel: {
+    fontFamily: 'System',
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.dark,
     lineHeight: 18,
-    color: 'rgba(15, 49, 29, 0.65)',
   },
-  menuCTA: {
-    alignSelf: 'flex-start',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    backgroundColor: '#0b4d26',
-  },
-  menuCTALabel: {
-    fontSize: 13,
+  navLabelActive: {
     fontWeight: '600',
-    color: '#f5f7f4',
+    color: colors.primary,
+  },
+  
+  // States
+  loadingText: {
+    fontSize: 14,
+    color: colors.grey,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.grey,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });

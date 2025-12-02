@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { scheduleRepeatingWaterReminderForPlant, computeNextWaterDateString } from '../lib/plantNotifications';
 import {
   Alert,
   Image,
@@ -194,7 +195,7 @@ export default function AddPlantScreen() {
 
       // Insert plant into database
       const { data, error } = await supabase
-        .from('plants')
+        .from('user_plants')
         .insert([
           {
             user_id: user.id,
@@ -208,10 +209,44 @@ export default function AddPlantScreen() {
         ])
         .select()
         .single();
+      
+        // Insert plant into user_plants (schema-compatible)
+      // const { data, error } = await supabase
+      // .from('user_plants')
+      // .insert([
+      //   {
+      //     user_id: user.id,
+      //     plant_id: null, // link to catalog later if you want
+      //     floorplan_id: floorplanId, // REQUIRED by your schema
+      //     nickname: nickname.trim() || null,
+      //     notes: notes.trim() || null,
+      //     watering_frequency_days: intervalDays,
+      //     started_at: new Date().toISOString().split('T')[0],
+      //     // store image in `photos` jsonb if you want
+      //     photos: imageUrl
+      //       ? [
+      //           {
+      //             image_url: imageUrl,
+      //             taken_at: new Date().toISOString(),
+      //             notes: null,
+      //           },
+      //         ]
+      //       : [],
+      //   },
+      // ])
+      // .select()
+      // .single();
+
 
       if (error) {
         throw error;
       }
+
+      const notificationId = await  scheduleRepeatingWaterReminderForPlant(
+        data.id,
+        nickname.trim() || null,
+        data.watering_frequency_days
+      );
 
       Alert.alert(
         'Plant Added!',
