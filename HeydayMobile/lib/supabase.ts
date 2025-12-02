@@ -75,6 +75,8 @@ export interface Floorplan {
   user_id: string;
   name: string | null;
   roomplan_json: Record<string, any> | null;
+  floorplan_svg: string | null;
+  floorplan_svg_url: string | null;
   created_at: string;
 }
 

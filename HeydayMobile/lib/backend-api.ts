@@ -49,6 +49,7 @@ export interface RoomRecommendations {
 export interface DjangoRecommendationResponse {
   session_id: string;
   user_id: string;
+  floorplan_svg_url?: string;
   roomplan_summary: string;
   window_orientation: string | null;
   source_model: string;
@@ -85,10 +86,18 @@ export async function uploadRoomPlanJSON(
   sessionId: string,
   roomJsonString: string
 ): Promise<DjangoArtifactUpload> {
-  const blob = new Blob([roomJsonString], { type: "application/json" });
   const formData = new FormData();
   formData.append("kind", "roomplan_json");
-  formData.append("file", blob, "roomplan.json");
+
+  // React Native FormData requires a file object with uri, type, and name
+  // Create a Blob and use it as the file
+  const blob = new Blob([roomJsonString], { type: "application/json" });
+
+  // Append the Blob as a file with explicit type and name
+  (formData as any).append("file", blob, {
+    type: "application/json",
+    name: "roomplan.json",
+  });
 
   const response = await fetch(
     `${BACKEND_URL}/api/scans/sessions/${sessionId}/artifacts/`,
@@ -99,7 +108,9 @@ export async function uploadRoomPlanJSON(
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to upload RoomPlan JSON: ${response.status}`);
+    const errorText = await response.text().catch(() => "Unknown error");
+    console.error("Upload error response:", errorText);
+    throw new Error(`Failed to upload RoomPlan JSON: ${response.status} - ${errorText}`);
   }
 
   return response.json();
@@ -136,4 +147,21 @@ export async function generateRecommendations(
   }
 
   return response.json();
+}
+
+/**
+ * Clean up Django session after successfully saving to Supabase
+ */
+export async function cleanupSession(sessionId: string): Promise<void> {
+  const response = await fetch(
+    `${BACKEND_URL}/api/scans/sessions/${sessionId}/cleanup/`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!response.ok) {
+    console.warn(`Failed to cleanup session ${sessionId}: ${response.status}`);
+    // Don't throw - cleanup failure shouldn't block user flow
+  }
 }

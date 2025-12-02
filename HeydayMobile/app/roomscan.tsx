@@ -3,7 +3,7 @@ import { View, ActivityIndicator, Text, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { NativeModules } from "react-native";
 import { supabase } from "../lib/supabase";
-import { createScanSession, uploadRoomPlanJSON, generateRecommendations } from "../lib/backend-api";
+import { createScanSession, uploadRoomPlanJSON, generateRecommendations, cleanupSession } from "../lib/backend-api";
 
 const { ARRoomScanner } = NativeModules;
 
@@ -61,6 +61,7 @@ export default function RoomScanPage() {
         setStatusMessage("Generating plant recommendations...");
         const recommendations = await generateRecommendations(session.id, user.id);
         console.log("🟢 Recommendations generated:", recommendations);
+        console.log("🟢 Floorplan SVG URL:", recommendations.floorplan_svg_url);
 
         // Step 6: Save to Supabase floorplans table
         setStatusMessage("Saving floorplan...");
@@ -70,6 +71,7 @@ export default function RoomScanPage() {
             user_id: user.id,
             name: `Room scan ${new Date().toLocaleString()}`,
             roomplan_json: JSON.parse(roomJson),
+            floorplan_svg_url: recommendations.floorplan_svg_url,
           })
           .select()
           .single();
@@ -150,15 +152,25 @@ export default function RoomScanPage() {
           console.log("🟢 Saved", recommendationInserts.length, "recommendations");
         }
 
-        // Step 8: Navigate to recommendations screen
+        // Step 8: Clean up Django session data
+        setStatusMessage("Cleaning up...");
+        try {
+          await cleanupSession(session.id);
+          console.log("🟢 Django session cleaned up");
+        } catch (e) {
+          console.warn("⚠️ Failed to cleanup Django session:", e);
+          // Don't throw - cleanup failure shouldn't block user flow
+        }
+
+        // Step 9: Navigate to floorplan screen
         Alert.alert(
           "Scan Complete!",
           `Found ${recommendationInserts.length} plant recommendations for your space.`,
           [
             {
-              text: "View Recommendations",
+              text: "View Floorplan",
               onPress: () => {
-                router.push(`/recommendations/${floorplan.id}` as any);
+                router.push(`/floorplan?id=${floorplan.id}` as any);
               },
             },
           ]
