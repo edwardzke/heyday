@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "apps.core",
+    "apps.scans",
     "uploads"
 ]
 

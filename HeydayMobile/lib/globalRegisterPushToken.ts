@@ -1,7 +1,7 @@
 // lib/registerPushToken.ts
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { supabase } from "./supabaseClient";
+import { supabase } from "./supabase";
 
 export async function registerPushTokenForUser(userId: string) {
   // 1) Ask for permission

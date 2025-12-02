@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export function useSupabaseUser() {

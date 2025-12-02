@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 import { useSupabaseUser } from "./useSupabaseUser";
 
 export type PlantRecommendation = {

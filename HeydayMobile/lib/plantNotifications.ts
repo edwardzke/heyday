@@ -1,7 +1,7 @@
 // lib/plantNotifications.ts
 import * as Notifications from "expo-notifications";
 
-import {supabase} from "./supabaseClient";
+import {supabase} from "./supabase";
 
 /**
  * Ask user for notification permissions if needed.
