@@ -240,13 +240,14 @@ export default function DashboardScreen() {
     
     switch (tab) {
       case 'Plants':
-        router.push('/plants');
+        // Navigate to recommendations screen
+        router.push('/plantrecommendations');
         break;
       case 'Profile':
-        // Could navigate to profile
+        // TODO: Navigate to profile screen
         break;
       case 'Schedule':
-        // Could navigate to schedule
+        // TODO: Navigate to schedule screen
         break;
     }
   };
