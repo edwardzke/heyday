@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 
 import requests
 from dotenv import load_dotenv
-from google import genai
 from supabase import Client, create_client
 
 # load .env from the backend root (adjust path if your .env lives elsewhere)

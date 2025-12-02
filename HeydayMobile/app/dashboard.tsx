@@ -240,7 +240,7 @@ export default function DashboardScreen() {
     
     switch (tab) {
       case 'Plants':
-        // Could navigate to a plants list screen
+        router.push('/plants');
         break;
       case 'Profile':
         // Could navigate to profile
