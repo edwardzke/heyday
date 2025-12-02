@@ -1,11 +1,17 @@
 """HTTP views for AR room scanning."""
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+
+from recommendationEngine import floorPlanRecs
 
 from .models import ProcessingJob, RoomScanSession, ScanArtifact
 from .serializers import (
@@ -103,3 +109,85 @@ def start_processing(request, session_id):
         },
         status=status.HTTP_202_ACCEPTED,
     )
+
+
+@api_view(["POST"])
+def generate_recommendations(request, session_id):
+    """
+    Generate plant recommendations for a scanned room.
+
+    Expects a RoomPlan JSON artifact to have been uploaded for this session.
+
+    Request body:
+        {
+            "user_id": str (required) - Supabase user UUID,
+            "window_orientation": str (optional) - N/S/E/W,
+            "enrich_perenual": bool (optional, default true) - Fetch Perenual data
+        }
+
+    Response:
+        {
+            "session_id": str,
+            "user_id": str,
+            "roomplan_summary": str,
+            "window_orientation": str | None,
+            "source_model": str,
+            "recommendations": {...}
+        }
+    """
+    session = get_object_or_404(RoomScanSession, id=session_id)
+
+    # Extract request parameters
+    user_id = request.data.get("user_id")
+    if not user_id:
+        return Response(
+            {"error": "user_id is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    window_orientation = request.data.get("window_orientation")
+    enrich_perenual = request.data.get("enrich_perenual", True)
+
+    # Find the RoomPlan JSON artifact
+    roomplan_artifacts = session.artifacts.filter(
+        kind=ScanArtifact.Kind.ROOMPLAN_JSON,
+        status=ScanArtifact.Status.COMPLETE
+    )
+
+    if not roomplan_artifacts.exists():
+        return Response(
+            {"error": "No RoomPlan JSON artifact found for this session"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Load the RoomPlan JSON from the file
+    artifact = roomplan_artifacts.first()
+    roomplan_path = Path(settings.MEDIA_ROOT) / artifact.file.name
+
+    try:
+        with open(roomplan_path, "r") as f:
+            roomplan_json = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        return Response(
+            {"error": f"Failed to load RoomPlan JSON: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    # Call the recommendation engine
+    try:
+        recommendations = floorPlanRecs.get_floor_plan_recommendations(
+            user_id=user_id,
+            roomplan_json=roomplan_json,
+            window_orientation=window_orientation,
+            enrich_perenual=enrich_perenual,
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Recommendation generation failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    # Add session_id to response
+    recommendations["session_id"] = str(session_id)
+
+    return Response(recommendations, status=status.HTTP_200_OK)

@@ -1,22 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, ActivityIndicator, Text, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { NativeModules } from "react-native";
+import { supabase } from "../lib/supabase";
+import { createScanSession, uploadRoomPlanJSON, generateRecommendations } from "../lib/backend-api";
 
 const { ARRoomScanner } = NativeModules;
-console.log("NativeModules.ARRoomScanner =", ARRoomScanner);
 
 export default function RoomScanPage() {
   const router = useRouter();
+  const [statusMessage, setStatusMessage] = useState("Opening room scanner...");
 
   useEffect(() => {
     (async () => {
       try {
-        // 1) Get the raw string from native
+        // Step 1: Get scan data from AR scanner
         const payloadString: string = await ARRoomScanner.scanRoom();
-        // console.log("🔵 Scanner returned raw:", payloadString);
 
-        // 2) Parse it
         let payload: any;
         try {
           payload = JSON.parse(payloadString);
@@ -31,37 +31,144 @@ export default function RoomScanPage() {
           throw new Error(payload.error);
         }
 
-        const usdzPath: string | undefined = payload.usdzPath;
         const roomJson: string | undefined = payload.roomJson;
+        if (!roomJson) {
+          throw new Error("No RoomPlan JSON data received from scanner");
+        }
 
-        console.log("🟢 usdzPath:", usdzPath);
-        console.log("🟢 roomJson length:", roomJson?.length);
+        console.log("🟢 RoomPlan JSON received, length:", roomJson.length);
 
-        // 👉 TODO: upload usdzPath + roomJson to your backend
-        // const fileUri = `file://${usdzPath}`;
-        // const formData = new FormData();
-        // formData.append("file", {
-        //   uri: fileUri,
-        //   type: "model/vnd.usdz+zip",
-        //   name: "room.usdz",
-        // } as any);
-        // formData.append("roomJson", roomJson || "{}");
-        //
-        // const resp = await fetch("https://your-backend/room/upload", {
-        //   method: "POST",
-        //   body: formData,
-        // });
-        // if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+        // Step 2: Get current user from Supabase
+        setStatusMessage("Getting user information...");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error("No authenticated user found. Please log in.");
+        }
 
-        Alert.alert("Scan complete", `3D file saved at:\n${usdzPath ?? "unknown"}`);
+        console.log("🟢 User ID:", user.id);
 
-        router.back(); // go back to dashboard afterwards
+        // Step 3: Create Django scan session
+        setStatusMessage("Creating scan session...");
+        const session = await createScanSession(`Room scan ${new Date().toLocaleString()}`);
+        console.log("🟢 Created scan session:", session.id);
+
+        // Step 4: Upload RoomPlan JSON to Django
+        setStatusMessage("Uploading room data...");
+        const uploadResult = await uploadRoomPlanJSON(session.id, roomJson);
+        console.log("🟢 Uploaded RoomPlan JSON:", uploadResult.upload_token);
+
+        // Step 5: Generate AI recommendations
+        setStatusMessage("Generating plant recommendations...");
+        const recommendations = await generateRecommendations(session.id, user.id);
+        console.log("🟢 Recommendations generated:", recommendations);
+
+        // Step 6: Save to Supabase floorplans table
+        setStatusMessage("Saving floorplan...");
+        const { data: floorplan, error: floorplanError } = await supabase
+          .from("floorplans")
+          .insert({
+            user_id: user.id,
+            name: `Room scan ${new Date().toLocaleString()}`,
+            roomplan_json: JSON.parse(roomJson),
+          })
+          .select()
+          .single();
+
+        if (floorplanError) {
+          console.error("❌ Failed to save floorplan:", floorplanError);
+          throw new Error(`Failed to save floorplan: ${floorplanError.message}`);
+        }
+
+        console.log("🟢 Saved floorplan:", floorplan.id);
+
+        // Step 7: Save recommendations to Supabase
+        setStatusMessage("Saving recommendations...");
+        const recommendationInserts = [];
+
+        for (const [roomName, roomData] of Object.entries(recommendations.recommendations)) {
+          for (const plant of (roomData as any).plants || []) {
+            const perenualData = plant.perenual_data;
+
+            // Upsert plant to catalog if we have Perenual data
+            let plantId = null;
+            if (perenualData?.perenual_id) {
+              const { data: catalogPlant, error: plantError } = await supabase
+                .from("plants")
+                .upsert(
+                  {
+                    perenual_id: perenualData.perenual_id,
+                    common_name: perenualData.common_name,
+                    scientific_name: perenualData.scientific_name,
+                    watering_general_benchmark: perenualData.watering_general_benchmark,
+                    watering_interval_days: perenualData.watering_interval_days,
+                    sunlight: perenualData.sunlight,
+                    maintenance_category: perenualData.maintenance_category,
+                    poison_human: perenualData.poison_human,
+                    poison_pets: perenualData.poison_pets,
+                    default_image_url: perenualData.default_image_url,
+                    care_notes: perenualData.care_notes,
+                  },
+                  { onConflict: "perenual_id" }
+                )
+                .select()
+                .single();
+
+              if (!plantError && catalogPlant) {
+                plantId = catalogPlant.id;
+              }
+            }
+
+            recommendationInserts.push({
+              user_id: user.id,
+              plant_id: plantId,
+              floorplan_id: floorplan.id,
+              source: recommendations.source_model,
+              reason: (roomData as any).reasoning || null,
+              recommended_location: {
+                room: roomName,
+                placement: (roomData as any).placement || null,
+                plant_name: plant.name,
+                light_need: plant.light_need,
+                watering: plant.watering,
+                ...perenualData,
+              },
+              status: "pending",
+            });
+          }
+        }
+
+        if (recommendationInserts.length > 0) {
+          const { error: recError } = await supabase
+            .from("plant_recommendations")
+            .insert(recommendationInserts);
+
+          if (recError) {
+            console.error("❌ Failed to save recommendations:", recError);
+            throw new Error(`Failed to save recommendations: ${recError.message}`);
+          }
+
+          console.log("🟢 Saved", recommendationInserts.length, "recommendations");
+        }
+
+        // Step 8: Navigate to recommendations screen
+        Alert.alert(
+          "Scan Complete!",
+          `Found ${recommendationInserts.length} plant recommendations for your space.`,
+          [
+            {
+              text: "View Recommendations",
+              onPress: () => {
+                router.push(`/recommendations/${floorplan.id}` as any);
+              },
+            },
+          ]
+        );
       } catch (e: any) {
         if (e?.code === "CANCELLED") {
           router.back();
           return;
         }
-        console.error("❌ Room scan failed:", e);
+        console.error("❌ Room scan workflow failed:", e);
         Alert.alert("Scan failed", e?.message ?? "Unknown error");
         router.back();
       }
@@ -71,7 +178,7 @@ export default function RoomScanPage() {
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <ActivityIndicator size="large" />
-      <Text style={{ marginTop: 12 }}>Opening room scanner...</Text>
+      <Text style={{ marginTop: 12 }}>{statusMessage}</Text>
     </View>
   );
 }

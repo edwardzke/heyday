@@ -56,6 +56,7 @@ class ScanArtifact(TimestampedModel):
         CAMERA_PATH = "camera_path", "Camera Path"
         SCREEN_CAPTURE = "screen_capture", "Screen Capture"
         METADATA = "metadata", "Metadata"
+        ROOMPLAN_JSON = "roomplan_json", "RoomPlan JSON"
 
     class Status(models.TextChoices):
         RECEIVED = "received", "Received"

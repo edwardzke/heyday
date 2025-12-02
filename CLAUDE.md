@@ -73,8 +73,9 @@ npm run web      # run in web browser
 
 **Django Apps:**
 - `apps.core` - Basic health check endpoints and landing pages
-- `apps.scans` - Room scanning session management, artifact uploads, and processing
-- `uploads` - Generic file upload handling
+- `apps.scans` - Room scanning session management, artifact uploads, processing, and AI recommendation generation
+- `uploads` - Generic file upload handling and plant classification
+- `recommendationEngine/` - AI-powered plant recommendation system (not a Django app, standalone module)
 
 **Key Models (apps/scans/models.py):**
 - `RoomScanSession` - Container for a room scan with status tracking (created → uploading → processing → ready/failed)
@@ -82,17 +83,23 @@ npm run web      # run in web browser
 - `ProcessingJob` - Async job tracking for mesh processing
 
 **URL Structure:**
+- `/` - Landing page
+- `/dashboard/` - Server-rendered dashboard page
 - `/api/` - Core API endpoints
-- `/api/scans/` - Scanning endpoints (sessions, artifacts, processing)
+- `/api/scans/` - Scanning endpoints (sessions, artifacts, processing) - currently commented out
 - `/upload/` - Upload endpoints
 - `/media/` - Uploaded files (development only)
 
 **Environment Variables (.env in root):**
 - `DJANGO_SECRET_KEY` - Django secret key
-- `PLANTNET_API_KEY` - PlantNet API integration
+- `PLANTNET_API_KEY` - PlantNet API for plant identification
+- `PERENUAL_API_KEY` - Perenual API for plant data
 - `OPENWEATHER_API_KEY` - Weather API integration
-- `OPENWEATHER_DEFAULT_LOCATION` - Default location for weather
+- `OPENWEATHER_DEFAULT_LOCATION` - Default location for weather (default: "San Francisco,US")
 - `FRONTEND_DEV_SERVER_ORIGIN` - Frontend dev server URL (default: http://localhost:5173)
+- `GEMINI_API_KEY` - Google Gemini API for recommendation engine
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key for backend operations
 
 ### Scanning Flow
 
@@ -116,20 +123,32 @@ npm run web      # run in web browser
 - `src/App.tsx` - Main React application
 - `src/views/` - Page components
 - Tailwind CSS for styling
-- Vite configuration proxies `/api/*` to Django backend
+- Vite dev server on port 5173 proxies `/api/*` to Django on port 8000
+- Dual routing: Dashboard accessible from both mobile app and web frontend
 
 ### Mobile Structure (Expo Router)
 
 - `app/_layout.tsx` - Root layout with navigation
 - `app/index.tsx` - Landing/home screen
-- `app/dashboard.tsx` - Main dashboard view
+- `app/login.tsx`, `app/signup.tsx` - Authentication screens
+- `app/dashboard.tsx` - Main dashboard view (has dual routing to frontend dashboard)
 - `app/camerapage.tsx` - AR camera for scanning
+- `app/roomscan.tsx` - RoomPlan AR scanning interface (iOS only)
 - `app/addplant.tsx` - Plant identification and addition
 
 **Key Dependencies:**
 - `expo-camera` - Camera access for AR scanning
 - `expo-gl` - OpenGL for 3D rendering
 - `@react-navigation/*` - Navigation stack
+- `@supabase/supabase-js` - Supabase client for user data and plant storage
+
+**iOS RoomPlan Integration:**
+- Native Swift bridge at `ios/RoomPlan/` (ARRoomScanner.swift, RoomCaptureViewController.swift, OnboardingViewController.swift)
+- Requires iOS 16.0+ deployment target in Podfile
+- Requires RoomPlan.framework added to Xcode project
+- Uses bridging header at `ios/HeydayMobile/HeydayMobile-Bridging-Header.h`
+- Returns USDZ file path and JSON room structure via NativeModules.ARRoomScanner.scanRoom()
+- See "AR Integration HOWTO.md" for detailed setup instructions
 
 ## Development Notes
 
@@ -150,10 +169,32 @@ npm run web      # run in web browser
 - REST Framework configured with `IsAuthenticatedOrReadOnly` by default
 - CORS enabled for all origins in development (`CORS_ALLOW_ALL_ORIGINS = True`)
 
+### Recommendation Engine
+
+Located in `backend/recommendationEngine/`:
+- `floorPlanRecs.py` - Main recommendation engine using Gemini AI
+  - Ingests RoomPlan JSON (structure: doors, windows, sections, objects)
+  - Pulls user context from Supabase (location, experience, style, maintenance preferences)
+  - Uses Gemini (`gemini-2.5-pro`) to generate per-room plant recommendations
+  - Returns JSON with plant picks, placement suggestions, and care notes
+  - Supports optional window orientation parameter (N/S/E/W) for light-aware recommendations
+- `locationRecs.py` - Location-based recommendations
+- Sample RoomPlan structure at `backend/recommendationEngine/Room.json`
+
+**Architecture:**
+1. Normalize RoomPlan JSON → lean schema (rooms, dimensions, doors/windows)
+2. Pull user context from Supabase
+3. Build deterministic prompt: room metadata + user prefs + constraints
+4. Call Gemini with system+user turns, request JSON schema
+5. Validate/repair model JSON, persist to Supabase, return to client
+
 ### External Integrations
 
 - PlantNet API for plant identification (requires API key)
+- Perenual API for plant data (requires API key)
 - OpenWeather API for location-based weather data (requires API key)
+- Google Gemini API for AI recommendations (gemini-2.5-pro, requires API key)
+- Supabase for user data, plant collections, and analytics storage
 
 ### Testing
 
@@ -179,8 +220,22 @@ python manage.py startapp app_name apps/app_name
 2. Update serializers in `apps/scans/serializers.py` if needed
 3. Update upload logic in `apps/scans/views.py` if special handling required
 
+### Running iOS Build with RoomPlan AR
+
+For detailed RoomPlan integration steps, see "AR Integration HOWTO.md". Quick version:
+1. Run `npx expo prebuild` to generate native projects
+2. Update iOS deployment target to 16.0+ in `ios/Podfile`
+3. Open Xcode: `cd ios && xed HeydayMobile.xcworkspace`
+4. Add RoomPlan group with Swift bridge files
+5. Add RoomPlan.framework (Do Not Embed)
+6. Configure signing & bundle identifier
+7. Build to device from Xcode
+8. Run `npx expo run:ios --device` from HeydayMobile directory
+9. Note: RoomPlan requires physical iOS device (doesn't work on eduroam networks due to firewall)
+
 ### Debugging Backend
 
 - Check `backend/.runserver.log` when using launchExpo.sh
 - Enable Django debug toolbar if needed
 - Use `python manage.py shell` for interactive debugging
+- Recommendation engine errors: check GEMINI_API_KEY and Supabase credentials

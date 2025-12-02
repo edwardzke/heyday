@@ -16,4 +16,9 @@ urlpatterns = [
         views.start_processing,
         name="scan-processing-start",
     ),
+    path(
+        "sessions/<uuid:session_id>/generate-recommendations/",
+        views.generate_recommendations,
+        name="scan-generate-recommendations",
+    ),
 ]

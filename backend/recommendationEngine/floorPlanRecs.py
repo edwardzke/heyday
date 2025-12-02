@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from google import genai
 from supabase import Client, create_client
+from . import perenual_service
 
 # load .env from the backend root (adjust path if your .env lives elsewhere)
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -107,21 +108,80 @@ def get_floor_plan_recommendations(
     user_id: str,
     roomplan_json: Optional[Dict[str, Any]] = None,
     window_orientation: Optional[str] = None,
-) -> str:
+    enrich_perenual: bool = True,
+) -> Dict[str, Any]:
     """
     Generate plant recommendations for a RoomPlan JSON. If roomplan_json is omitted,
     the bundled Room.json sample is used (useful for testing).
+
+    Args:
+        user_id: Supabase user ID
+        roomplan_json: RoomPlan JSON structure (optional, uses example if not provided)
+        window_orientation: Window orientation (N/S/E/W) for light-aware recommendations
+        enrich_perenual: Whether to enrich plant names with Perenual data (default True)
+
+    Returns:
+        Dict with structure:
+        {
+            "user_id": str,
+            "roomplan_summary": str,
+            "window_orientation": str | None,
+            "source_model": "gemini-2.5-flash",
+            "recommendations": {
+                "room_name": {
+                    "plants": [
+                        {
+                            "name": str,
+                            "light_need": str,
+                            "watering": str,
+                            "perenual_data": {...} | None  # if enrich_perenual=True
+                        },
+                        ...
+                    ],
+                    "placement": str,
+                    "reasoning": str
+                },
+                ...
+            }
+        }
     """
     # Fetch user data from Supabase
-    resp = supabase.table("users").select("*").eq("id", user_id).maybe_single()
-    if resp.error:
-        raise RuntimeError(f"Supabase error: {resp.error}")
-    user = resp.data or {}
+    resp = supabase.table("users").select("*").eq("id", user_id).execute()
+    if not resp.data:
+        raise RuntimeError(f"User {user_id} not found in Supabase")
+    user = resp.data[0]
 
     plan = roomplan_json or _load_example_roomplan()
     prompt = _build_prompt(user, plan, window_orientation)
 
-    gemini_json = _call_gemini(prompt)
+    # Get Gemini recommendations
+    gemini_json_str = _call_gemini(prompt)
 
-    # TODO: Add JSON validation/repair and persistence once schema is confirmed.
-    return gemini_json
+    # Parse Gemini response
+    try:
+        gemini_data = json.loads(gemini_json_str)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse Gemini response: {e}")
+
+    # Enrich plant recommendations with Perenual data
+    if enrich_perenual and isinstance(gemini_data, dict):
+        for room_name, room_data in gemini_data.items():
+            if isinstance(room_data, dict) and "plants" in room_data:
+                plants = room_data["plants"]
+                if isinstance(plants, list):
+                    for plant in plants:
+                        if isinstance(plant, dict) and "name" in plant:
+                            plant_name = plant["name"]
+                            perenual_data = perenual_service.enrich_plant_with_perenual(plant_name)
+                            plant["perenual_data"] = perenual_data
+
+    # Build structured response
+    roomplan_summary = _summarize_roomplan(plan, window_orientation)
+
+    return {
+        "user_id": user_id,
+        "roomplan_summary": roomplan_summary,
+        "window_orientation": window_orientation,
+        "source_model": "gemini-2.5-flash",
+        "recommendations": gemini_data,
+    }
