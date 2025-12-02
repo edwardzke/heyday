@@ -162,15 +162,15 @@ export default function RoomScanPage() {
           // Don't throw - cleanup failure shouldn't block user flow
         }
 
-        // Step 9: Navigate to floorplan screen
+        // Step 9: Navigate to recommendations screen
         Alert.alert(
           "Scan Complete!",
           `Found ${recommendationInserts.length} plant recommendations for your space.`,
           [
             {
-              text: "View Floorplan",
+              text: "View Recommendations",
               onPress: () => {
-                router.push(`/floorplan?id=${floorplan.id}` as any);
+                router.push('/plantrecommendations');
               },
             },
           ]
