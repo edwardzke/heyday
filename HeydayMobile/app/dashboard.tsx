@@ -31,8 +31,6 @@ interface PlantItem {
   nickname: string | null;
   location: string;
   image_url: string | null;
-  needs_water: boolean;
-  watered_today: boolean;
 }
 
 // Bottom Tab Navigation Component
@@ -152,9 +150,8 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<TabName>('Home');
-  const [plantsToWater, setPlantsToWater] = useState<PlantItem[]>([]);
   const [allPlants, setAllPlants] = useState<PlantItem[]>([]);
-  const [wateredPlants, setWateredPlants] = useState<Set<string>>(new Set());
+  const [checkedPlants, setCheckedPlants] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('Good morning');
   const [weather, setWeather] = useState({ temp: '68°F', location: 'Los Angeles' });
@@ -174,7 +171,10 @@ export default function DashboardScreen() {
 
   // Fetch plants from Supabase
   const fetchPlants = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
@@ -184,8 +184,6 @@ export default function DashboardScreen() {
           id,
           nickname,
           location_meta,
-          next_water_at,
-          last_watered_at,
           plants (
             default_image_url,
             common_name
@@ -195,26 +193,15 @@ export default function DashboardScreen() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const today = new Date().toISOString().split('T')[0];
       
       const formattedPlants: PlantItem[] = (data || []).map((plant: any) => ({
         id: plant.id,
         nickname: plant.nickname || plant.plants?.common_name || 'Unnamed Plant',
         location: plant.location_meta?.room || 'Unknown location',
         image_url: plant.plants?.default_image_url || null,
-        needs_water: plant.next_water_at ? plant.next_water_at <= today : false,
-        watered_today: plant.last_watered_at === today,
       }));
 
       setAllPlants(formattedPlants);
-      setPlantsToWater(formattedPlants.filter(p => p.needs_water && !p.watered_today));
-      
-      // Mark already watered plants
-      const alreadyWatered = new Set(
-        formattedPlants.filter(p => p.watered_today).map(p => p.id)
-      );
-      setWateredPlants(alreadyWatered);
     } catch (error) {
       console.error('Error fetching plants:', error);
     } finally {
@@ -226,43 +213,17 @@ export default function DashboardScreen() {
     fetchPlants();
   }, [fetchPlants]);
 
-  // Handle watering a plant
-  const handleWaterPlant = async (plantId: string) => {
-    const newWatered = new Set(wateredPlants);
+  // Handle checking off a plant (simple toggle, no database update)
+  const handleCheckPlant = (plantId: string) => {
+    const newChecked = new Set(checkedPlants);
     
-    if (newWatered.has(plantId)) {
-      newWatered.delete(plantId);
+    if (newChecked.has(plantId)) {
+      newChecked.delete(plantId);
     } else {
-      newWatered.add(plantId);
-      
-      // Update in Supabase
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // Get the watering frequency to calculate next water date
-        const { data: plantData } = await supabase
-          .from('user_plants')
-          .select('watering_frequency_days')
-          .eq('id', plantId)
-          .single();
-        
-        const frequencyDays = plantData?.watering_frequency_days || 7;
-        const nextWaterDate = new Date();
-        nextWaterDate.setDate(nextWaterDate.getDate() + frequencyDays);
-        
-        await supabase
-          .from('user_plants')
-          .update({
-            last_watered_at: today,
-            next_water_at: nextWaterDate.toISOString().split('T')[0],
-          })
-          .eq('id', plantId);
-      } catch (error) {
-        console.error('Error updating watered status:', error);
-      }
+      newChecked.add(plantId);
     }
     
-    setWateredPlants(newWatered);
+    setCheckedPlants(newChecked);
   };
 
   // Handle adding a note
@@ -291,8 +252,7 @@ export default function DashboardScreen() {
   };
 
   // Get display plants (limit to 4 for each section)
-  const displayPlantsToWater = plantsToWater.slice(0, 4);
-  const displayAllPlants = allPlants.slice(0, 4);
+  const displayPlants = allPlants.slice(0, 4);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -319,7 +279,7 @@ export default function DashboardScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Water</Text>
-            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plants to water')}>
+            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plants')}>
               <Text style={styles.seeAll}>See all →</Text>
             </TouchableOpacity>
           </View>
@@ -327,18 +287,18 @@ export default function DashboardScreen() {
           <View style={styles.plantList}>
             {loading ? (
               <Text style={styles.loadingText}>Loading plants...</Text>
-            ) : displayPlantsToWater.length > 0 ? (
-              displayPlantsToWater.map((plant) => (
+            ) : displayPlants.length > 0 ? (
+              displayPlants.map((plant) => (
                 <PlantRow
                   key={plant.id}
                   plant={plant}
                   showCheckbox
-                  checked={wateredPlants.has(plant.id)}
-                  onCheck={() => handleWaterPlant(plant.id)}
+                  checked={checkedPlants.has(plant.id)}
+                  onCheck={() => handleCheckPlant(plant.id)}
                 />
               ))
             ) : (
-              <Text style={styles.emptyText}>All plants are watered! 🎉</Text>
+              <Text style={styles.emptyText}>No plants yet. Add your first plant!</Text>
             )}
           </View>
         </View>
@@ -355,8 +315,8 @@ export default function DashboardScreen() {
           <View style={styles.plantList}>
             {loading ? (
               <Text style={styles.loadingText}>Loading plants...</Text>
-            ) : displayAllPlants.length > 0 ? (
-              displayAllPlants.map((plant) => (
+            ) : displayPlants.length > 0 ? (
+              displayPlants.map((plant) => (
                 <PlantRow
                   key={plant.id}
                   plant={plant}
