@@ -266,12 +266,11 @@ export default function DashboardScreen() {
   };
 
   // Handle adding a note
-  const handleAddNote = (plantId: string) => {
-    Alert.alert(
-      'Add Progress Note',
-      'This feature is coming soon! You\'ll be able to track your plant\'s growth with photos and notes.',
-      [{ text: 'OK' }]
-    );
+  const handleAddNote = (plantId: string, plantName: string) => {
+    router.push({
+      pathname: '/notes',
+      params: { plantId, plantName },
+    });
   };
 
   // Handle tab navigation
@@ -361,7 +360,7 @@ export default function DashboardScreen() {
                 <PlantRow
                   key={plant.id}
                   plant={plant}
-                  onNote={() => handleAddNote(plant.id)}
+                  onNote={() => handleAddNote(plant.id, plant.nickname || 'Plant')}
                 />
               ))
             ) : (
