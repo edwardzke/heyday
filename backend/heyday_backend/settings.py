@@ -38,7 +38,7 @@ OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 DEBUG = True
-ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1", ".ngrok-free.app", ".ngrok-free.dev"]
+ALLOWED_HOSTS: list[str] = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split() or ["localhost", "127.0.0.1", "192.168.0.129", ".ngrok-free.app", ".ngrok-free.dev"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -117,8 +117,12 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
-    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticatedOrReadOnly"],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.FormParser",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
 }
 
 CORS_ALLOWED_ORIGINS = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173").split()

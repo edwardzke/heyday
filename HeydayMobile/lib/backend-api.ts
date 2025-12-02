@@ -2,6 +2,8 @@
  * Django backend API client
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
+
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 export interface DjangoSession {
@@ -86,18 +88,19 @@ export async function uploadRoomPlanJSON(
   sessionId: string,
   roomJsonString: string
 ): Promise<DjangoArtifactUpload> {
+  // Write the JSON string to a temporary file
+  const tempFileUri = FileSystem.cacheDirectory + 'roomplan_upload.json';
+  await FileSystem.writeAsStringAsync(tempFileUri, roomJsonString);
+
   const formData = new FormData();
   formData.append("kind", "roomplan_json");
 
   // React Native FormData requires a file object with uri, type, and name
-  // Create a Blob and use it as the file
-  const blob = new Blob([roomJsonString], { type: "application/json" });
-
-  // Append the Blob as a file with explicit type and name
-  (formData as any).append("file", blob, {
+  formData.append("file", {
+    uri: tempFileUri,
     type: "application/json",
     name: "roomplan.json",
-  });
+  } as any);
 
   const response = await fetch(
     `${BACKEND_URL}/api/scans/sessions/${sessionId}/artifacts/`,
@@ -106,6 +109,13 @@ export async function uploadRoomPlanJSON(
       body: formData,
     }
   );
+
+  // Clean up the temporary file
+  try {
+    await FileSystem.deleteAsync(tempFileUri, { idempotent: true });
+  } catch (e) {
+    console.warn("Failed to delete temp file:", e);
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");

@@ -1,6 +1,10 @@
 django>=4.2,<5.1
 djangorestframework>=3.15,<3.16
 django-cors-headers>=4.3,<5
+<<<<<<< Updated upstream
+=======
+# httpx>=0.23.0,<0.24.0   # keep this commented out
+>>>>>>> Stashed changes
 python-dotenv>=1.0,<2
 trimesh>=4,<5
 numpy>=1.26,<2
@@ -9,9 +13,21 @@ dj-database-url>=2.1,<3
 gunicorn>=21.2,<22
 requests-oauthlib>=1.3,<2
 
+<<<<<<< Updated upstream
 # Supabase + GenAI
 supabase>=2.8.1,<3
 google-genai>=1.47.0,<2
 
 # HTTP client
 httpx>=0.28.1,<0.29
+=======
+# === changed lines start here ===
+supabase>=2.8.1,<3
+google-generativeai>=0.3.0,<1
+httpx>=0.28.1,<0.29
+# === changed lines end here ===
+
+
+
+
+>>>>>>> Stashed changes

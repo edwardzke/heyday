@@ -53,6 +53,7 @@ class ScanArtifact(TimestampedModel):
         RAW_MESH = "raw_mesh", "Raw Mesh"
         PROCESSED_MESH = "processed_mesh", "Processed Mesh"
         FLOORPLAN = "floorplan", "Floorplan"
+        FLOORPLAN_SVG = "floorplan_svg", "Floorplan SVG"
         CAMERA_PATH = "camera_path", "Camera Path"
         SCREEN_CAPTURE = "screen_capture", "Screen Capture"
         METADATA = "metadata", "Metadata"

@@ -21,4 +21,9 @@ urlpatterns = [
         views.generate_recommendations,
         name="scan-generate-recommendations",
     ),
+    path(
+        "sessions/<uuid:session_id>/cleanup/",
+        views.cleanup_session,
+        name="scan-cleanup-session",
+    ),
 ]

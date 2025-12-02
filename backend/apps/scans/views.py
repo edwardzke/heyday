@@ -13,6 +13,7 @@ from rest_framework.response import Response
 
 from recommendationEngine import floorPlanRecs
 
+from .floorplan import generate_2d_floorplan_svg
 from .models import ProcessingJob, RoomScanSession, ScanArtifact
 from .serializers import (
     ArtifactUploadSerializer,
@@ -173,6 +174,37 @@ def generate_recommendations(request, session_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+    # Generate 2D floorplan SVG
+    floorplan_svg_url = None
+    try:
+        floorplan_svg = generate_2d_floorplan_svg(roomplan_json)
+
+        # Save SVG as a new artifact
+        from django.core.files.base import ContentFile
+        svg_upload_token = generate_upload_token()
+        svg_artifact = ScanArtifact.objects.create(
+            session=session,
+            kind=ScanArtifact.Kind.FLOORPLAN_SVG,
+            upload_token=svg_upload_token,
+            content_type="image/svg+xml",
+            status=ScanArtifact.Status.COMPLETE,
+        )
+        svg_artifact.file.save(
+            f"{svg_upload_token}.svg",
+            ContentFile(floorplan_svg.encode('utf-8')),
+            save=True
+        )
+        svg_artifact.bytes = len(floorplan_svg.encode('utf-8'))
+        svg_artifact.save(update_fields=["bytes", "updated_at"])
+
+        # Build URL to SVG file
+        floorplan_svg_url = f"{settings.MEDIA_URL}{svg_artifact.file.name}"
+    except Exception as e:
+        # Log error but don't fail the request - floorplan is optional
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to generate floorplan SVG: {e}", exc_info=True)
+
     # Call the recommendation engine
     try:
         recommendations = floorPlanRecs.get_floor_plan_recommendations(
@@ -187,7 +219,60 @@ def generate_recommendations(request, session_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    # Add session_id to response
+    # Add session_id and floorplan_svg_url to response
     recommendations["session_id"] = str(session_id)
+    if floorplan_svg_url:
+        recommendations["floorplan_svg_url"] = floorplan_svg_url
 
     return Response(recommendations, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+def cleanup_session(request, session_id):
+    """
+    Clean up Django session data after successfully saving to Supabase.
+
+    This endpoint deletes all scan artifacts (files from media/) and the session record
+    from the Django database after the mobile app has successfully persisted the data
+    to Supabase.
+
+    Request body: None required
+
+    Response:
+        {
+            "message": "Session cleaned up successfully",
+            "session_id": str,
+            "artifacts_deleted": int
+        }
+    """
+    session = get_object_or_404(RoomScanSession, id=session_id)
+
+    # Count artifacts before deletion
+    artifact_count = session.artifacts.count()
+
+    # Delete all artifact files from filesystem and database
+    for artifact in session.artifacts.all():
+        try:
+            # Delete file from filesystem
+            if artifact.file:
+                artifact.file.delete(save=False)
+        except Exception as e:
+            # Log but continue - don't fail cleanup if file already gone
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to delete artifact file {artifact.id}: {e}")
+
+        # Delete artifact record
+        artifact.delete()
+
+    # Delete session record
+    session.delete()
+
+    return Response(
+        {
+            "message": "Session cleaned up successfully",
+            "session_id": str(session_id),
+            "artifacts_deleted": artifact_count,
+        },
+        status=status.HTTP_200_OK
+    )

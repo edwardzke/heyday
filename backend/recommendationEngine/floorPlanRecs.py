@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
-from google import genai
+import google.generativeai as genai
 from supabase import Client, create_client
 from . import perenual_service
 
@@ -17,7 +17,9 @@ if not api_key:
     raise RuntimeError("Missing GEMINI_API_KEY environment variable")
 if not supabase_url or not supabase_key:
     raise RuntimeError("Missing Supabase credentials (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)")
-client = genai.Client(api_key=api_key)
+
+# Configure Gemini with the new SDK
+genai.configure(api_key=api_key)
 supabase: Client = create_client(supabase_url, supabase_key)
 
 # 1) Normalize the RoomPlan JSON into a lean schema (rooms, dimensions, doors/windows, light level, climate). Cache this as a dict.
@@ -96,10 +98,12 @@ def _load_example_roomplan() -> Dict[str, Any]:
 
 
 def _call_gemini(prompt: str) -> str:
-    response = client.responses.generate(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        response_mime_type="application/json",
+    model = genai.GenerativeModel('gemini-2.5-flash-lite')
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(
+            response_mime_type="application/json"
+        )
     )
     return response.text  # already JSON per mime type
 
@@ -126,7 +130,7 @@ def get_floor_plan_recommendations(
             "user_id": str,
             "roomplan_summary": str,
             "window_orientation": str | None,
-            "source_model": "gemini-2.5-flash",
+            "source_model": "gemini-2.5-flash-lite",
             "recommendations": {
                 "room_name": {
                     "plants": [
@@ -182,6 +186,6 @@ def get_floor_plan_recommendations(
         "user_id": user_id,
         "roomplan_summary": roomplan_summary,
         "window_orientation": window_orientation,
-        "source_model": "gemini-2.5-flash",
+        "source_model": "gemini-2.5-flash-lite",
         "recommendations": gemini_data,
     }

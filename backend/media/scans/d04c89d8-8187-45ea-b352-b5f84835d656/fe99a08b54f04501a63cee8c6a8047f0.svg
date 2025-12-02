@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="275" viewBox="0 0 800 275">
+<rect width="800" height="275" fill="#FCF7F4"/>
+<polygon points="66.66666666666667,22.916666666666675 66.66666666666667,252.08328249143068 641.5603156870625,252.08333333333331 733.333290908549,151.76628977641286 733.3333333333333,22.916666666666675" fill="white" stroke="#191919" stroke-width="2"/>
+<circle cx="448.3777748858216" cy="131.80804881164678" r="3" fill="#349552"/>
+<text x="448.3777748858216" y="121.80804881164678" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#191919">Unidentified</text>
+<rect x="144.5562181953324" y="68.34967540372439" width="229.7008278454223" height="10" fill="#F17F38" stroke="#191919" stroke-width="1"/>
+</svg>

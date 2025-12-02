@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="366" viewBox="0 0 800 366">
+<rect width="800" height="366" fill="#FCF7F4"/>
+<polygon points="612.756387072572,278.15477836445865 621.287437910686,48.68611481607805 130.29943061950496,30.500000000000004 66.66666666666667,92.46633539603236 304.21552761514147,335.5 394.3203829538539,332.76919695820584 391.5899818295101,269.9627717620115" fill="white" stroke="#191919" stroke-width="2"/>
+<circle cx="602.8766349733465" cy="214.7901695984945" r="3" fill="#349552"/>
+<text x="602.8766349733465" y="204.7901695984945" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#191919">Unidentified</text>
+<rect x="357.1649786706658" y="182.56805635076537" width="123.00724202844823" height="10" fill="#F17F38" stroke="#191919" stroke-width="1"/>
+<rect x="627.743005258144" y="54.05383917660247" width="193.07188086839815" height="66.9695154389566" fill="#E3F2FD" stroke="#191919" stroke-width="1"/>
+<text x="724.2789456923431" y="87.53859689608078" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Storage</text>
+<rect x="659.8225952787286" y="150.12305834282492" width="147.02147610920917" height="12.860155103621036" fill="#D9D9D9" stroke="#191919" stroke-width="1"/>
+<text x="733.3333333333333" y="156.55313589463543" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Television</text>
+</svg>
