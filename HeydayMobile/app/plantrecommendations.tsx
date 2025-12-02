@@ -194,10 +194,15 @@ export default function PlantRecommendationsScreen() {
     fetchRecommendations();
   }, [fetchRecommendations]);
 
-  // Handle card press (could navigate to detail)
+  // Handle card press - navigate to plant info
   const handleCardPress = (item: RecommendationItem) => {
-    // TODO: Navigate to plant detail or accept/dismiss flow
-    console.log('Card pressed:', item.plant_name);
+    router.push({
+      pathname: '/plantinfo',
+      params: {
+        recommendationId: item.id,
+        plantName: item.plant_name,
+      },
+    });
   };
 
   // Handle favorite toggle
