@@ -103,23 +103,8 @@ def _enrich_plant_cached(normalized_name: str) -> Dict[str, Any]:
         # Step 3: Fetch detailed species information
         details = _perenual_request(f"/species/details/{species_id}")
 
-        # Step 4: Fetch care guide
-        try:
-            care_guide_response = _perenual_request(f"/species-care-guide-list", {"species_id": species_id})
-            care_sections = care_guide_response.get("data", [])
-
-            # Combine care instructions into a single text block
-            care_notes_list = []
-            for section in care_sections:
-                section_type = section.get("type", "General")
-                description = section.get("description", "")
-                if description:
-                    care_notes_list.append(f"{section_type}: {description}")
-            care_notes = "\n\n".join(care_notes_list) if care_notes_list else None
-        except Exception:
-            care_notes = None
-
-        # Step 5: Extract and format data to match Supabase plants table schema
+        # Step 4: Extract and format data to match Supabase plants table schema
+        # Note: Removed verbose care_notes fetching - care data comes from structured fields only
         default_image = details.get("default_image", {})
         if isinstance(default_image, dict):
             image_url = default_image.get("regular_url") or default_image.get("original_url")
@@ -162,7 +147,6 @@ def _enrich_plant_cached(normalized_name: str) -> Dict[str, Any]:
             "poison_human": details.get("poisonous_to_humans") == 1,
             "poison_pets": details.get("poisonous_to_pets") == 1,
             "default_image_url": image_url,
-            "care_notes": care_notes,
             "error": None,
         }
 

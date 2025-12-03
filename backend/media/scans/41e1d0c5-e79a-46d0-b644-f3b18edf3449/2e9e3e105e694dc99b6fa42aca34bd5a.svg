@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1233" viewBox="0 0 800 1233">
+<rect width="800" height="1233" fill="#FCF7F4"/>
+<polygon points="66.66666666666667,1129.4935755407587 516.9385796574749,1130.25 517.1221880296262,1021.0497010416218 515.7719789358782,485.4132700706661 733.3333333333334,342.8576817141602 575.8549245523534,102.74999999999996 416.57811494704475,207.11508779817862 195.23866092280474,202.00371187573074 68.01670278973903,326.64437861619206" fill="white" stroke="#191919" stroke-width="2"/>
+<circle cx="357.2385330480553" cy="586.2182034788276" r="3" fill="#349552"/>
+<text x="357.2385330480553" y="576.2182034788276" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#191919">Living Room</text>
+<rect x="377.6312308438838" y="577.5640952754733" width="267.56534816680426" height="10" fill="#F17F38" stroke="#191919" stroke-width="1"/>
+<rect x="273.69334090697794" y="554.8557706556747" width="101.21732437221684" height="10" fill="#35B0FE" stroke="#191919" stroke-width="1"/>
+<rect x="152.45277051146502" y="547.991529078448" width="146.4145866170735" height="12.349156298461526" fill="#D9D9D9" stroke="#191919" stroke-width="1"/>
+<text x="225.66006382000177" y="554.1661072276788" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Television</text>
+<rect x="467.7342293214329" y="461.9777237203092" width="76.13315406158311" height="84.38808120930403" fill="#E8F5E9" stroke="#191919" stroke-width="1"/>
+<text x="505.80080635222447" y="504.1717643249612" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Chair</text>
+<rect x="341.9388468353934" y="437.7119788960588" width="189.04957246899886" height="118.68140831516412" fill="#FFF3E0" stroke="#191919" stroke-width="1"/>
+<text x="436.4636330698928" y="497.05268305364086" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Table</text>
+<rect x="224.99721115673213" y="419.59863061991445" width="93.21220073370453" height="86.82056755399297" fill="#FFF3E0" stroke="#191919" stroke-width="1"/>
+<text x="271.6033115235844" y="463.00891439691094" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Table</text>
+<rect x="544.1667894449588" y="458.072460318562" width="134.51083120749286" height="81.46359973974775" fill="#E3F2FD" stroke="#191919" stroke-width="1"/>
+<text x="611.4222050487052" y="498.8042601884359" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Storage</text>
+<rect x="61.96634917281409" y="433.10116904840623" width="277.5446441946871" height="107.01134836664487" fill="#E8F5E9" stroke="#191919" stroke-width="1"/>
+<text x="200.73867127015765" y="486.60684323172865" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Sofa</text>
+<rect x="279.9205385071333" y="432.11184703924295" width="147.27493040246878" height="108.98999238497142" fill="#E8F5E9" stroke="#191919" stroke-width="1"/>
+<text x="353.5580037083677" y="486.60684323172865" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Sofa</text>
+</svg>
