@@ -164,6 +164,8 @@ export default function DashboardScreen() {
   const [greeting, setGreeting] = useState('Good morning');
   const [weather, setWeather] = useState({ temp: '68°F', location: 'Los Angeles' });
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
+  const [showAllWater, setShowAllWater] = useState(false);
+  const [showAllProgress, setShowAllProgress] = useState(false);
 
   // Set greeting based on time of day
   useEffect(() => {
@@ -271,6 +273,8 @@ export default function DashboardScreen() {
 
   // Get display plants (limit to 4 for each section)
   const displayPlants = allPlants.slice(0, 4);
+  const renderWaterPlants = showAllWater ? allPlants : displayPlants;
+  const renderProgressPlants = showAllProgress ? allPlants : displayPlants;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -297,16 +301,16 @@ export default function DashboardScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Water</Text>
-            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plants')}>
-              <Text style={styles.seeAll}>See all →</Text>
+            <TouchableOpacity onPress={() => setShowAllWater((prev) => !prev)}>
+              <Text style={styles.seeAll}>{showAllWater ? 'Collapse ↑' : 'See all →'}</Text>
             </TouchableOpacity>
           </View>
           
           <View style={styles.plantList}>
             {loading ? (
               <Text style={styles.loadingText}>Loading plants...</Text>
-            ) : displayPlants.length > 0 ? (
-              displayPlants.map((plant) => (
+            ) : renderWaterPlants.length > 0 ? (
+              renderWaterPlants.map((plant) => (
                 <PlantRow
                   key={plant.id}
                   plant={plant}
@@ -325,16 +329,16 @@ export default function DashboardScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Progress Update</Text>
-            <TouchableOpacity onPress={() => Alert.alert('See all', 'View all plant progress')}>
-              <Text style={styles.seeAll}>See all →</Text>
+            <TouchableOpacity onPress={() => setShowAllProgress((prev) => !prev)}>
+              <Text style={styles.seeAll}>{showAllProgress ? 'Collapse ↑' : 'See all →'}</Text>
             </TouchableOpacity>
           </View>
           
           <View style={styles.plantList}>
             {loading ? (
               <Text style={styles.loadingText}>Loading plants...</Text>
-            ) : displayPlants.length > 0 ? (
-              displayPlants.map((plant) => (
+            ) : renderProgressPlants.length > 0 ? (
+              renderProgressPlants.map((plant) => (
                 <PlantRow
                   key={plant.id}
                   plant={plant}
