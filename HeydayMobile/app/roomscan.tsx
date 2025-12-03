@@ -89,35 +89,13 @@ export default function RoomScanPage() {
 
         for (const [roomName, roomData] of Object.entries(recommendations.recommendations)) {
           for (const plant of (roomData as any).plants || []) {
-            const perenualData = plant.perenual_data;
+            // Backend already created the plant in the database and returned plant_id
+            const plantId = plant.plant_id || null;
 
-            // Upsert plant to catalog if we have Perenual data
-            let plantId = null;
-            if (perenualData?.perenual_id) {
-              const { data: catalogPlant, error: plantError } = await supabase
-                .from("plants")
-                .upsert(
-                  {
-                    perenual_id: perenualData.perenual_id,
-                    common_name: perenualData.common_name,
-                    scientific_name: perenualData.scientific_name,
-                    watering_general_benchmark: perenualData.watering_general_benchmark,
-                    watering_interval_days: perenualData.watering_interval_days,
-                    sunlight: perenualData.sunlight,
-                    maintenance_category: perenualData.maintenance_category,
-                    poison_human: perenualData.poison_human,
-                    poison_pets: perenualData.poison_pets,
-                    default_image_url: perenualData.default_image_url,
-                    care_notes: perenualData.care_notes,
-                  },
-                  { onConflict: "perenual_id" }
-                )
-                .select()
-                .single();
-
-              if (!plantError && catalogPlant) {
-                plantId = catalogPlant.id;
-              }
+            if (plantId) {
+              console.log(`✅ Using plant_id from backend: ${plant.name} (${plantId})`);
+            } else {
+              console.warn(`⚠️ Backend did not return plant_id for: ${plant.name}`);
             }
 
             recommendationInserts.push({
@@ -129,13 +107,7 @@ export default function RoomScanPage() {
               recommended_location: {
                 room: roomName,
                 placement: (roomData as any).placement || null,
-                plant_name: perenualData?.common_name || plant.name,
-                // Use ONLY Perenual structured data (no verbose care_notes):
-                sunlight: perenualData?.sunlight || null,
-                watering_benchmark: perenualData?.watering_general_benchmark || null,
-                watering_interval_days: perenualData?.watering_interval_days || null,
-                maintenance_category: perenualData?.maintenance_category || null,
-                default_image_url: perenualData?.default_image_url || null,
+                plant_name: plant.name,  // Keep for backward compatibility
               },
               status: "pending",
             });

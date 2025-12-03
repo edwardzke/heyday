@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="891" viewBox="0 0 800 891">
+<rect width="800" height="891" fill="#FCF7F4"/>
+<polygon points="732.5371312488802,74.25 416.4335954399744,74.63585253753811 416.51541654788895,141.57732678042166 415.71937729848014,619.0844994288284 262.1250204397376,718.6037307792268 320.8210307517833,809.0591673111102 491.28211201184564,816.4882567863798 646.3822299131723,816.7499999999998 733.3333333333334,725.660422297926" fill="white" stroke="#191919" stroke-width="2"/>
+<circle cx="463.65208310757475" cy="394.22309688220815" r="3" fill="#349552"/>
+<text x="463.65208310757475" y="384.22309688220815" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#191919">Unidentified</text>
+<rect x="581.5047798301238" y="283.30318058722986" width="79.87264303495947" height="79.57312999775094" fill="#E8F5E9" stroke="#191919" stroke-width="1"/>
+<text x="621.4411013476035" y="323.0897455861053" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Sofa</text>
+<rect x="143.13717260898142" y="300.28683340655226" width="202.17705901805599" height="67.10577234766292" fill="#E3F2FD" stroke="#191919" stroke-width="1"/>
+<text x="244.22570211800942" y="333.8397195803837" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Storage</text>
+<rect x="519.543407734416" y="277.72545632486185" width="65.40941904080599" height="62.23217844601259" fill="#FFF3E0" stroke="#191919" stroke-width="1"/>
+<text x="552.2481172548189" y="308.8415455478681" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Table</text>
+<rect x="60.1678325043016" y="454.9692116114989" width="134.67589251507357" height="31.433157183671014" fill="#E3F2FD" stroke="#191919" stroke-width="1"/>
+<text x="127.50577876183839" y="470.6857902033344" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Storage</text>
+<rect x="27.489095611187587" y="434.33533578714935" width="78.35514211095814" height="30.79783764413293" fill="#E3F2FD" stroke="#191919" stroke-width="1"/>
+<text x="66.66666666666666" y="449.73425460921584" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Storage</text>
+<rect x="589.808341051802" y="364.19462533310383" width="107.63677447729819" height="8.748101534607967" fill="#D9D9D9" stroke="#191919" stroke-width="1"/>
+<text x="643.6267282904511" y="368.5686761004078" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Television</text>
+<rect x="580.559770152557" y="289.1144459317985" width="116.85235377093481" height="44.20270402244094" fill="#FFF3E0" stroke="#191919" stroke-width="1"/>
+<text x="638.9859470380244" y="311.21579794301897" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#191919">Table</text>
+</svg>
