@@ -31,6 +31,7 @@ interface PlantItem {
   nickname: string | null;
   location: string;
   image_url: string | null;
+  base64?: string | null;
 }
 
 // Bottom Tab Navigation Component
@@ -39,9 +40,9 @@ type TabName = 'Home' | 'Schedule' | 'Plants' | 'Profile';
 function BottomNav({ activeTab, onTabPress }: { activeTab: TabName; onTabPress: (tab: TabName) => void }) {
   const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }[] = [
     { name: 'Home', icon: 'home', iconOutline: 'home-outline' },
-    { name: 'Schedule', icon: 'calendar', iconOutline: 'calendar-outline' },
+    // { name: 'Schedule', icon: 'calendar', iconOutline: 'calendar-outline' },
     { name: 'Plants', icon: 'leaf', iconOutline: 'leaf-outline' },
-    { name: 'Profile', icon: 'person-circle', iconOutline: 'person-circle-outline' },
+    // { name: 'Profile', icon: 'person-circle', iconOutline: 'person-circle-outline' },
   ];
 
   return (
@@ -118,12 +119,18 @@ function PlantRow({
   onCheck?: () => void;
   onNote?: () => void;
 }) {
+  const imageSource = plant.image_url
+    ? { uri: plant.image_url }
+    : plant.base64
+    ? { uri: plant.base64 }
+    : null;
+
   return (
     <View style={styles.plantRow}>
       <View style={styles.plantInfo}>
         <View style={styles.plantImageContainer}>
-          {plant.image_url ? (
-            <Image source={{ uri: plant.image_url }} style={styles.plantImage} />
+          {imageSource ? (
+            <Image source={imageSource} style={styles.plantImage} />
           ) : (
             <View style={[styles.plantImage, styles.plantImagePlaceholder]}>
               <Ionicons name="leaf" size={24} color={colors.grey} />
@@ -184,6 +191,7 @@ export default function DashboardScreen() {
           id,
           nickname,
           location_meta,
+          photos,
           plants (
             default_image_url,
             common_name
@@ -197,8 +205,9 @@ export default function DashboardScreen() {
       const formattedPlants: PlantItem[] = (data || []).map((plant: any) => ({
         id: plant.id,
         nickname: plant.nickname || plant.plants?.common_name || 'Unnamed Plant',
-        location: plant.location_meta?.room || 'Unknown location',
-        image_url: plant.plants?.default_image_url || null,
+        location: plant.location_meta?.room || plant.location_meta?.label || 'Unknown location',
+        image_url: plant.photos?.[0]?.image_url || plant.plants?.default_image_url || null,
+        base64: plant.photos?.[0]?.base64 || null,
       }));
 
       setAllPlants(formattedPlants);

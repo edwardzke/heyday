@@ -1,6 +1,7 @@
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.conf import settings
+from django.core.files.storage import default_storage
 import requests
 import os
 import traceback
@@ -12,14 +13,13 @@ from functools import lru_cache
 def upload_photo(request):
     if request.method == "POST" and request.FILES.get("photo"):
         photo = request.FILES["photo"]
-        save_path = os.path.join(settings.MEDIA_ROOT, photo.name)
-
-        # Save the file to /media/
-        with open(save_path, "wb+") as destination:
-            for chunk in photo.chunks():
-                destination.write(chunk)
-
-        return JsonResponse({"status": "ok", "file_url": f"{settings.MEDIA_URL}{photo.name}"})
+        # Save via default storage (S3 if configured, local otherwise)
+        path = default_storage.save(photo.name, photo)
+        file_url = default_storage.url(path)
+        # Ensure absolute URL for clients
+        if not (file_url.startswith("http://") or file_url.startswith("https://")):
+            file_url = request.build_absolute_uri(file_url)
+        return JsonResponse({"status": "ok", "file_url": file_url})
 
     return JsonResponse({"status": "error", "message": "No photo uploaded"}, status=400)
 

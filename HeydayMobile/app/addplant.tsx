@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 export default function AddPlantScreen() {
   const router = useRouter();
@@ -101,45 +104,45 @@ export default function AddPlantScreen() {
     );
   };
 
-  const uploadImageToSupabase = async (uri: string): Promise<string | null> => {
+  const uploadImage = async (uri: string): Promise<string | null> => {
     try {
-      // Get the file extension
-      const ext = uri.split('.').pop() || 'jpg';
+      const ext = (uri.split('.').pop() || 'jpg').toLowerCase();
       const fileName = `${Date.now()}.${ext}`;
-      const filePath = `plant-images/${fileName}`;
+      const contentType =
+        ext === 'png' ? 'image/png' :
+        ext === 'heic' ? 'image/heic' :
+        'image/jpeg';
 
-      // Create form data for upload
       const formData = new FormData();
-      formData.append('file', {
+      formData.append('photo', {
         uri,
-        type: `image/${ext}`,
+        type: contentType,
         name: fileName,
       } as any);
 
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Not authenticated');
+      const response = await fetch(`${BACKEND_URL}/upload/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        // ignore parse errors
       }
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('plant-images')
-        .upload(filePath, formData, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) {
-        throw error;
+      if (!response.ok || (data && data.error)) {
+        const message = data?.error || `Upload failed: ${response.status}`;
+        throw new Error(message);
       }
 
-      // Get the public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('plant-images')
-        .getPublicUrl(filePath);
+      const url = data?.file_url || data?.url || null;
+      if (!url) {
+        throw new Error('Upload succeeded but no file URL returned');
+      }
 
-      return publicUrlData.publicUrl;
+      return url;
     } catch (error) {
       console.error('Error uploading image:', error);
       return null;
@@ -164,10 +167,14 @@ export default function AddPlantScreen() {
       Alert.alert('Invalid Input', 'Please enter a valid watering schedule (e.g., 1.5 for 1.5 waters per day).');
       return;
     }
+    const wateringIntervalDays = wateringNum > 0 ? Math.max(1, Math.round(1 / wateringNum)) : null;
+    const today = new Date();
+    const nextWaterAt =
+      typeof wateringIntervalDays === 'number'
+        ? computeNextWaterDateString(today, wateringIntervalDays)
+        : null;
 
     setSubmitting(true);
-    const ADD_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/add/";
-
     try {
       // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
@@ -187,65 +194,53 @@ export default function AddPlantScreen() {
       // Upload image if present
       let imageUrl = null;
       if (imageUri) {
-        imageUrl = await uploadImageToSupabase(imageUri);
+        imageUrl = await uploadImage(imageUri);
+        // Alert.alert('Uploading Image', 'Your plant image is being uploaded.');
+        // Alert.alert('Image Upload', imageUrl ? 'Image uploaded successfully!' : 'Image upload failed.');
         if (!imageUrl) {
           Alert.alert('Warning', 'Image upload failed, but plant will still be saved.');
         }
       }
-
-      // Insert plant into database
+      // Alert.alert("Plant Added!")
+      // Insert plant into user_plants (matches Supabase schema)
       const { data, error } = await supabase
         .from('user_plants')
         .insert([
           {
             user_id: user.id,
-            species: species.trim(),
-            age: age.trim(),
-            nickname: nickname.trim() || null,
-            watering_schedule: wateringNum,
+            plant_id: null,
+            floorplan_id: null,
+            nickname: nickname.trim() || species.trim() || null,
             notes: notes.trim() || null,
-            image_url: imageUrl,
+            started_at: today.toISOString().split('T')[0],
+            watering_frequency_days: wateringIntervalDays,
+            last_watered_at: null,
+            next_water_at: nextWaterAt,
+            photos: imageUrl
+              ? [
+                  {
+                    image_url: imageUrl,
+                    taken_at: today.toISOString(),
+                    notes: null,
+                  },
+                ]
+              : [],
           },
         ])
         .select()
         .single();
-      
-        // Insert plant into user_plants (schema-compatible)
-      // const { data, error } = await supabase
-      // .from('user_plants')
-      // .insert([
-      //   {
-      //     user_id: user.id,
-      //     plant_id: null, // link to catalog later if you want
-      //     floorplan_id: floorplanId, // REQUIRED by your schema
-      //     nickname: nickname.trim() || null,
-      //     notes: notes.trim() || null,
-      //     watering_frequency_days: intervalDays,
-      //     started_at: new Date().toISOString().split('T')[0],
-      //     // store image in `photos` jsonb if you want
-      //     photos: imageUrl
-      //       ? [
-      //           {
-      //             image_url: imageUrl,
-      //             taken_at: new Date().toISOString(),
-      //             notes: null,
-      //           },
-      //         ]
-      //       : [],
-      //   },
-      // ])
-      // .select()
-      // .single();
 
 
       if (error) {
         throw error;
       }
 
-      const notificationId = await  scheduleRepeatingWaterReminderForPlant(
+      const reminderInterval =
+        typeof wateringIntervalDays === 'number' ? wateringIntervalDays : 7;
+      await scheduleRepeatingWaterReminderForPlant(
         data.id,
-        nickname.trim() || null,
-        data.watering_frequency_days
+        nickname.trim() || species.trim() || null,
+        reminderInterval
       );
 
       Alert.alert(
@@ -279,6 +274,7 @@ export default function AddPlantScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Add New Plant</Text>
@@ -353,6 +349,9 @@ export default function AddPlantScreen() {
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={Keyboard.dismiss}
               />
             </View>
 
