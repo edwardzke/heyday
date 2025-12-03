@@ -129,10 +129,13 @@ export default function RoomScanPage() {
               recommended_location: {
                 room: roomName,
                 placement: (roomData as any).placement || null,
-                plant_name: plant.name,
-                light_need: plant.light_need,
-                watering: plant.watering,
-                ...perenualData,
+                plant_name: perenualData?.common_name || plant.name,
+                // Use ONLY Perenual structured data (no verbose care_notes):
+                sunlight: perenualData?.sunlight || null,
+                watering_benchmark: perenualData?.watering_general_benchmark || null,
+                watering_interval_days: perenualData?.watering_interval_days || null,
+                maintenance_category: perenualData?.maintenance_category || null,
+                default_image_url: perenualData?.default_image_url || null,
               },
               status: "pending",
             });
@@ -142,7 +145,10 @@ export default function RoomScanPage() {
         if (recommendationInserts.length > 0) {
           const { error: recError } = await supabase
             .from("plant_recommendations")
-            .insert(recommendationInserts);
+            .upsert(recommendationInserts, {
+              onConflict: "user_id,plant_id,floorplan_id",
+              ignoreDuplicates: false  // Update if exists
+            });
 
           if (recError) {
             console.error("❌ Failed to save recommendations:", recError);

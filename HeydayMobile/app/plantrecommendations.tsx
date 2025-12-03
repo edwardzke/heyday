@@ -175,10 +175,10 @@ export default function PlantRecommendationsScreen() {
       const formattedRecs: RecommendationItem[] = (data || []).map((rec: any) => ({
         id: rec.id,
         plant_name: rec.plants?.common_name || rec.recommended_location?.plant_name || 'Unknown Plant',
-        image_url: rec.plants?.default_image_url || null,
-        maintenance_category: rec.plants?.maintenance_category || 'medium',
+        image_url: rec.plants?.default_image_url || rec.recommended_location?.default_image_url || null,
+        maintenance_category: rec.plants?.maintenance_category || rec.recommended_location?.maintenance_category || 'medium',
         sunlight: rec.plants?.sunlight || rec.recommended_location?.sunlight || 'Average',
-        watering: rec.plants?.watering_general_benchmark || rec.recommended_location?.watering || 'Average',
+        watering: rec.plants?.watering_general_benchmark || rec.recommended_location?.watering_benchmark || 'Average',
         is_favorite: false, // Could be stored separately if needed
       }));
 
