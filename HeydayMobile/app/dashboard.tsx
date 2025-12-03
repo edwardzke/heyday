@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { useSupabaseUser } from '../hooks/useSupabaseUser';
 
@@ -176,6 +177,52 @@ export default function DashboardScreen() {
     }
   }, []);
 
+  // Fetch weather data from OpenWeatherMap
+  const fetchWeather = useCallback(async () => {
+    try {
+      // Request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      // Get API key from environment (get free key at https://openweathermap.org/api)
+      const apiKey = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
+      if (!apiKey || apiKey === 'your_openweather_api_key_here') {
+        console.log('OpenWeatherMap API key not configured. Add EXPO_PUBLIC_OPENWEATHER_API_KEY to .env');
+        return;
+      }
+
+      // Fetch weather from OpenWeatherMap
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=imperial&appid=${apiKey}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Weather API request failed');
+      }
+
+      const data = await response.json();
+      
+      setWeather({
+        temp: `${Math.round(data.main.temp)}°F`,
+        location: data.name || 'Unknown',
+      });
+    } catch (error) {
+      console.error('Error fetching weather:', error);
+    }
+  }, []);
+
+  // Fetch weather on mount
+  useEffect(() => {
+    fetchWeather();
+  }, [fetchWeather]);
+
   // Fetch plants from Supabase
   const fetchPlants = useCallback(async () => {
     if (!user) {
@@ -250,7 +297,7 @@ export default function DashboardScreen() {
     switch (tab) {
       case 'Plants':
         // Navigate to recommendations screen
-        router.push('/plantrecommendations');
+        router.push('/plants');
         break;
       case 'Profile':
         // TODO: Navigate to profile screen
@@ -368,7 +415,7 @@ export default function DashboardScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="search-outline" size={24} color={colors.dark} />
-            <Text style={styles.cameraMenuText}>Identify plant</Text>
+            <Text style={styles.cameraMenuText}>Add Plant</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -1,445 +1,549 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Image,
+  View,
+  Text,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
-  ActivityIndicator,
-  RefreshControl,
+  Image,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { useSupabaseUser } from '../hooks/useSupabaseUser';
 
-// Icon components (using emoji - replace with icon library)
-const HomeIcon = () => <Text style={styles.iconNav}>🏠</Text>;
-const ScheduleIcon = () => <Text style={styles.iconNav}>📅</Text>;
-const PlantIcon = () => <Text style={styles.iconNav}>🌿</Text>;
-const ProfileIcon = () => <Text style={styles.iconNav}>👤</Text>;
-const CameraIcon = () => <Text style={styles.iconCamera}>📷</Text>;
+// Design tokens
+const colors = {
+  background: '#FCF7F4',
+  primary: '#349552',
+  dark: '#191919',
+  white: '#FFFFFF',
+  grey: '#B9B6B4',
+  border: 'rgba(25, 25, 25, 0.5)',
+  // Difficulty colors
+  easy: '#349552',
+  medium: '#FEAE33',
+  hard: '#EF583D',
+};
 
-interface Plant {
+const { width: screenWidth } = Dimensions.get('window');
+const cardWidth = (screenWidth - 48 - 16) / 2; // padding + gap
+
+// Types
+type TabName = 'Home' | 'Plants';
+
+interface UserPlant {
   id: string;
-  species: string;
-  nickname?: string;
-  image_url?: string;
-  created_at: string;
+  nickname: string | null;
+  location: string;
+  image_url: string | null;
+  maintenance_category: string | null;
+  sunlight: string | null;
+  watering: string | null;
+}
+
+interface RecommendationPlant {
+  id: string;
+  plant_name: string;
+  image_url: string | null;
+  maintenance_category: string | null;
+  sunlight: string | null;
+  watering: string | null;
+  recommended_location: string | null;
 }
 
 type TabType = 'myplants' | 'recommendations';
 
+// Utility functions
+function getDifficultyColor(category: string | null): string {
+  const normalized = (category || '').toLowerCase().trim();
+  if (normalized === 'low' || normalized === 'easy') return colors.easy;
+  if (normalized === 'high' || normalized === 'hard') return colors.hard;
+  return colors.medium;
+}
+
+function getDifficultyLabel(category: string | null): string {
+  const normalized = (category || '').toLowerCase().trim();
+  if (normalized === 'low' || normalized === 'easy') return 'Easy';
+  if (normalized === 'high' || normalized === 'hard') return 'Hard';
+  return 'Medium';
+}
+
+// Bottom Navigation Component
+function BottomNav({ activeTab, onTabPress }: { activeTab: TabName; onTabPress: (tab: TabName) => void }) {
+  const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }[] = [
+    { name: 'Home', icon: 'home', iconOutline: 'home-outline' },
+    { name: 'Plants', icon: 'leaf', iconOutline: 'leaf-outline' },
+  ];
+
+  return (
+    <View style={styles.bottomNav}>
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.name;
+        return (
+          <TouchableOpacity
+            key={tab.name}
+            style={styles.navTab}
+            onPress={() => onTabPress(tab.name)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isActive ? tab.icon : tab.iconOutline}
+              size={24}
+              color={isActive ? colors.primary : colors.dark}
+            />
+            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+              {tab.name}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// Plant Card Component
+function PlantCard({
+  plant,
+  onPress,
+  type,
+}: {
+  plant: UserPlant | RecommendationPlant;
+  onPress: () => void;
+  type: 'my' | 'recommendation';
+}) {
+  const difficultyColor = getDifficultyColor(plant.maintenance_category);
+  const difficultyLabel = getDifficultyLabel(plant.maintenance_category);
+  const plantName = type === 'my' ? (plant as UserPlant).nickname || 'Unnamed Plant' : (plant as RecommendationPlant).plant_name;
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+      {/* Image Section */}
+      <View style={styles.cardImageContainer}>
+        {plant.image_url ? (
+          <Image source={{ uri: plant.image_url }} style={styles.cardImage} />
+        ) : (
+          <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+            <Ionicons name="leaf" size={40} color={colors.primary} />
+          </View>
+        )}
+        
+        {/* Gradient Overlay */}
+        <View style={styles.cardGradient} />
+        
+        {/* Difficulty Badge */}
+        <View style={[styles.difficultyBadge, { backgroundColor: difficultyColor }]}>
+          <Text style={styles.difficultyText}>{difficultyLabel}</Text>
+        </View>
+        
+        {/* Plant Name */}
+        <View style={styles.cardOverlayContent}>
+          <Text style={styles.cardPlantName} numberOfLines={2}>{plantName}</Text>
+        </View>
+      </View>
+      
+      {/* Info Section */}
+      <View style={styles.cardInfoSection}>
+        <View style={styles.infoRow}>
+          <Ionicons name="sunny-outline" size={16} color={colors.dark} />
+          <Text style={styles.infoText} numberOfLines={1}>{plant.sunlight || 'Average'}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Ionicons name="water-outline" size={16} color="#35B0FE" />
+          <Text style={styles.infoText} numberOfLines={1}>{plant.watering || 'Average'}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// Main Plants Screen
 export default function PlantsScreen() {
   const router = useRouter();
-
-  // State
+  const { user } = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<TabType>('myplants');
-  const [myPlants, setMyPlants] = useState<Plant[]>([]);
-  const [recommendations, setRecommendations] = useState<Plant[]>([]);
+  const [activeNavTab, setActiveNavTab] = useState<TabName>('Plants');
+  const [myPlants, setMyPlants] = useState<UserPlant[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationPlant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadPlants();
-  }, []);
+  // Handle bottom nav tab press
+  const handleNavTabPress = (tab: TabName) => {
+    setActiveNavTab(tab);
+    
+    switch (tab) {
+      case 'Home':
+        router.push('/dashboard');
+        break;
+      case 'Plants':
+        // Already on plants screen
+        break;
+    }
+  };
 
-  const loadPlants = async () => {
+  // Fetch user's plants
+  const fetchMyPlants = useCallback(async () => {
+    if (!user) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // Load user's plants
-      const { data: plantsData, error: plantsError } = await supabase
-        .from('plants')
-        .select('*')
+      const { data, error } = await supabase
+        .from('user_plants')
+        .select(`
+          id,
+          nickname,
+          location_meta,
+          photos,
+          plants (
+            default_image_url,
+            common_name,
+            maintenance_category,
+            sunlight,
+            watering_general_benchmark
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (plantsError) throw plantsError;
+      if (error) throw error;
 
-      setMyPlants(plantsData || []);
+      const formatted: UserPlant[] = (data || []).map((plant: any) => ({
+        id: plant.id,
+        nickname: plant.nickname || plant.plants?.common_name || 'Unnamed Plant',
+        location: plant.location_meta?.room || plant.location_meta?.label || 'Unknown',
+        image_url: plant.photos?.[0]?.image_url || plant.plants?.default_image_url || null,
+        maintenance_category: plant.plants?.maintenance_category || 'medium',
+        sunlight: plant.plants?.sunlight || 'Average',
+        watering: plant.plants?.watering_general_benchmark || 'Average',
+      }));
 
-      // TODO: Load recommendations from your recommendation engine
-      // For now, using empty array
-      setRecommendations([]);
+      setMyPlants(formatted);
     } catch (error) {
-      console.error('Error loading plants:', error);
-    } finally {
+      console.error('Error fetching plants:', error);
+    }
+  }, [user]);
+
+  // Fetch plant recommendations
+  const fetchRecommendations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('plant_recommendations')
+        .select(`
+          id,
+          recommended_location,
+          plants (
+            id,
+            common_name,
+            default_image_url,
+            maintenance_category,
+            sunlight,
+            watering_general_benchmark
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formatted: RecommendationPlant[] = (data || []).map((rec: any) => ({
+        id: rec.id,
+        plant_name: rec.plants?.common_name || 'Unknown Plant',
+        image_url: rec.plants?.default_image_url || null,
+        maintenance_category: rec.plants?.maintenance_category || 'medium',
+        sunlight: rec.plants?.sunlight || 'Average',
+        watering: rec.plants?.watering_general_benchmark || 'Average',
+        recommended_location: rec.recommended_location?.room || null,
+      }));
+
+      setRecommendations(formatted);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchMyPlants(), fetchRecommendations()]);
       setLoading(false);
-    }
-  };
+    };
+    loadData();
+  }, [fetchMyPlants, fetchRecommendations]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadPlants();
-    setRefreshing(false);
-  };
-
-  const handlePlantPress = (plant: Plant) => {
-    // Navigate to plant detail screen
-    router.push({
-      pathname: '/plantdetail',
-      params: {
-        plantId: plant.id,
-        plantName: plant.nickname || plant.species,
-      },
-    });
-  };
-
-  const handleCameraPress = () => {
-    router.push('/camerapage');
-  };
-
-  const handleNavPress = (screen: string) => {
-    if (screen === 'home') {
-      router.push('/dashboard');
-    } else if (screen === 'schedule') {
-      router.push('/notify'); // or schedule screen
-    } else if (screen === 'plants') {
-      // Already on plants screen
-    } else if (screen === 'profile') {
-      router.push('/profile'); // Create profile screen if needed
-    }
-  };
-
-  const renderPlantCard = (plant: Plant) => {
-    const displayName = plant.nickname || plant.species;
-
-    return (
-      <TouchableOpacity
-        key={plant.id}
-        style={styles.plantCard}
-        onPress={() => handlePlantPress(plant)}
-        accessibilityRole="button"
-      >
-        <View style={styles.plantImageContainer}>
-          {plant.image_url ? (
-            <Image
-              source={{ uri: plant.image_url }}
-              style={styles.plantImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.plantImage, styles.plantImagePlaceholder]}>
-              <Text style={styles.plantImagePlaceholderText}>🌱</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.plantName} numberOfLines={2}>
-          {displayName}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderEmptyState = () => {
+  const handlePlantPress = (plantId: string) => {
     if (activeTab === 'myplants') {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>🌿</Text>
-          <Text style={styles.emptyStateText}>No plants yet</Text>
-          <Text style={styles.emptyStateSubtext}>
-            Tap the camera button to add your first plant
-          </Text>
-        </View>
-      );
+      router.push({
+        pathname: '/plantinfo',
+        params: { plantId },
+      });
     } else {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>💡</Text>
-          <Text style={styles.emptyStateText}>No recommendations yet</Text>
-          <Text style={styles.emptyStateSubtext}>
-            Complete a room scan to get personalized plant recommendations
-          </Text>
-        </View>
-      );
+      router.push({
+        pathname: '/plantrecommendation',
+        params: { recommendationId: plantId },
+      });
     }
   };
 
   const currentPlants = activeTab === 'myplants' ? myPlants : recommendations;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.container}>
-        {/* Tab Navigation */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'myplants' && styles.tabActive]}
-            onPress={() => setActiveTab('myplants')}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.tabText, activeTab === 'myplants' && styles.tabTextActive]}>
-              My Plants
-            </Text>
-            {activeTab === 'myplants' && <View style={styles.tabIndicator} />}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'recommendations' && styles.tabActive]}
-            onPress={() => setActiveTab('recommendations')}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.tabText, activeTab === 'recommendations' && styles.tabTextActive]}>
-              Recommendations
-            </Text>
-            {activeTab === 'recommendations' && <View style={styles.tabIndicator} />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Plants Grid */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#349552" />
-            </View>
-          ) : currentPlants.length === 0 ? (
-            renderEmptyState()
-          ) : (
-            <View style={styles.plantsGrid}>
-              {/* Render plants in rows of 3 */}
-              {Array.from({ length: Math.ceil(currentPlants.length / 3) }).map((_, rowIndex) => (
-                <View key={`row-${rowIndex}`} style={styles.plantsRow}>
-                  {currentPlants.slice(rowIndex * 3, (rowIndex + 1) * 3).map(renderPlantCard)}
-                </View>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Floating Camera Button */}
-        <TouchableOpacity
-          style={styles.cameraButton}
-          onPress={handleCameraPress}
-          accessibilityRole="button"
-          accessibilityLabel="Open camera"
-        >
-          <CameraIcon />
-        </TouchableOpacity>
-
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => handleNavPress('home')}
-            accessibilityRole="button"
-          >
-            <HomeIcon />
-            <Text style={styles.navText}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => handleNavPress('schedule')}
-            accessibilityRole="button"
-          >
-            <ScheduleIcon />
-            <Text style={styles.navText}>Schedule</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => handleNavPress('plants')}
-            accessibilityRole="button"
-          >
-            <PlantIcon />
-            <Text style={[styles.navText, styles.navTextActive]}>Plants</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => handleNavPress('profile')}
-            accessibilityRole="button"
-          >
-            <ProfileIcon />
-            <Text style={styles.navText}>Profile</Text>
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Plants</Text>
       </View>
+
+      {/* Tab Selector */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'myplants' && styles.tabActive]}
+          onPress={() => setActiveTab('myplants')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'myplants' && styles.tabTextActive]}>
+            My Plants
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'recommendations' && styles.tabActive]}
+          onPress={() => setActiveTab('recommendations')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'recommendations' && styles.tabTextActive]}>
+            Recommendations
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <View style={styles.centerContent}>
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        ) : currentPlants.length === 0 ? (
+          <View style={styles.centerContent}>
+            <Ionicons name="leaf-outline" size={64} color={colors.grey} />
+            <Text style={styles.emptyTitle}>
+              {activeTab === 'myplants' ? 'No plants yet' : 'No recommendations yet'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {activeTab === 'myplants'
+                ? 'Add your first plant to get started!'
+                : 'Scan your space to get plant recommendations'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.gridContainer}>
+            {currentPlants.map((plant) => (
+              <PlantCard
+                key={plant.id}
+                plant={plant}
+                onPress={() => handlePlantPress(plant.id)}
+                type={activeTab === 'myplants' ? 'my' : 'recommendation'}
+              />
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNav activeTab={activeNavTab} onTabPress={handleNavTabPress} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FCF7F4',
-  },
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.dark,
+    lineHeight: 42,
+  },
+  
+  // Tabs
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FCF7F4',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(25, 25, 25, 0.5)',
-    paddingTop: 78,
+    paddingHorizontal: 24,
+    gap: 12,
+    marginBottom: 24,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    backgroundColor: 'transparent',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
   },
   tabActive: {
-    // Active state styling handled by indicator
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabText: {
-    fontFamily: 'System',
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 20,
-    color: '#191919',
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.dark,
   },
   tabTextActive: {
-    color: '#191919',
+    color: colors.white,
   },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: '#349552',
-  },
+  
+  // Content
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 120,
-    gap: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 80,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
   },
-  emptyStateIcon: {
-    fontSize: 64,
-  },
-  emptyStateText: {
-    fontFamily: 'System',
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#191919',
-    textAlign: 'center',
-  },
-  emptyStateSubtext: {
-    fontFamily: 'System',
-    fontSize: 16,
-    fontWeight: '400',
-    color: 'rgba(25, 25, 25, 0.6)',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  plantsGrid: {
-    gap: 12,
-  },
-  plantsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  plantCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 18,
-  },
-  plantImageContainer: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 9999,
+  
+  // Plant Card
+  card: {
+    width: cardWidth,
+    borderRadius: 16,
+    backgroundColor: colors.white,
     overflow: 'hidden',
-    backgroundColor: '#E0E0E0',
+    borderWidth: 1,
+    borderColor: colors.dark,
   },
-  plantImage: {
+  cardImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 180,
+  },
+  cardImage: {
     width: '100%',
     height: '100%',
   },
-  plantImagePlaceholder: {
-    backgroundColor: '#E8F5E9',
+  cardImagePlaceholder: {
+    backgroundColor: colors.grey,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  plantImagePlaceholderText: {
-    fontSize: 40,
-  },
-  plantName: {
-    fontFamily: 'System',
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 20,
-    color: '#000000',
-    textAlign: 'center',
-    width: '100%',
-  },
-  cameraButton: {
+  cardGradient: {
     position: 'absolute',
-    bottom: 110,
-    right: 16,
-    width: 64,
-    height: 64,
-    borderRadius: 50,
-    backgroundColor: '#349552',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  difficultyBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  cardOverlayContent: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+  },
+  cardPlantName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.white,
+    lineHeight: 20,
+  },
+  cardInfoSection: {
+    padding: 12,
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoText: {
+    fontSize: 12,
+    color: colors.dark,
+    flex: 1,
+  },
+  
+  // Empty State
+  centerContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingVertical: 60,
+    gap: 16,
   },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.dark,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.grey,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.grey,
+  },
+  
+  // Bottom Navigation
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#FCF7F4',
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(25, 25, 25, 0.5)',
+    borderTopColor: colors.border,
+    paddingTop: 12,
     paddingBottom: 34,
+    paddingHorizontal: 0,
   },
-  navItem: {
+  navTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
     gap: 4,
   },
-  navText: {
+  navLabel: {
     fontFamily: 'System',
     fontSize: 12,
     fontWeight: '400',
+    color: colors.dark,
     lineHeight: 18,
-    color: '#191919',
   },
-  navTextActive: {
+  navLabelActive: {
     fontWeight: '600',
-    color: '#349552',
-  },
-  iconNav: {
-    fontSize: 24,
-  },
-  iconCamera: {
-    fontSize: 32,
-    color: '#FCF7F4',
+    color: colors.primary,
   },
 });

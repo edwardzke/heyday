@@ -408,7 +408,7 @@ export default function PlantInfoScreen() {
               color={colors.background} 
             />
             <Text style={styles.saveButtonText}>
-              {isSaved ? 'Saved' : 'Save Recommendation'}
+              {isSaved ? 'Saved' : 'I have this plant!'}
             </Text>
           </TouchableOpacity>
         </View>
