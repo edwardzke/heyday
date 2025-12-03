@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 // Design tokens from Figma
 const colors = {
@@ -33,6 +34,7 @@ export default function NotesScreen() {
   
   const [noteText, setNoteText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Format current date
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -40,6 +42,37 @@ export default function NotesScreen() {
     day: 'numeric',
     year: 'numeric',
   });
+
+  // Load existing note for this plant
+  React.useEffect(() => {
+    const loadNote = async () => {
+      try {
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !user) {
+          throw new Error('Not authenticated');
+        }
+        const { data, error } = await supabase
+          .from('user_plants')
+          .select('notes')
+          .eq('id', plantId)
+          .eq('user_id', user.id)
+          .single();
+        if (error) throw error;
+        setNoteText((data?.notes as string) || '');
+      } catch (err: any) {
+        console.error('Failed to load note:', err);
+        // Non-blocking; keep empty note
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (plantId) {
+      loadNote();
+    } else {
+      setIsLoading(false);
+    }
+  }, [plantId]);
 
   // Handle save note
   const handleSaveNote = async () => {
@@ -51,56 +84,20 @@ export default function NotesScreen() {
     setIsSaving(true);
 
     try {
-      // ============================================
-      // TODO: DATABASE INTEGRATION
-      // ============================================
-      // The code to save the note to the database would go here.
-      // 
-      // Expected implementation:
-      // 1. Get the current user from Supabase auth
-      // 2. Update the user_plants table's "photos" JSONB array
-      //    (which stores progress notes and photos)
-      // 3. Or create a separate "plant_notes" table if preferred
-      //
-      // Example structure for the note:
-      // {
-      //   id: uuid,
-      //   plant_id: plantId,
-      //   user_id: user.id,
-      //   note_text: noteText,
-      //   created_at: new Date().toISOString(),
-      //   type: 'text_note'  // vs 'photo_note'
-      // }
-      //
-      // Sample code (commented out):
-      // 
-      // import { supabase } from '../lib/supabase';
-      // 
-      // const { data: { user } } = await supabase.auth.getUser();
-      // 
-      // // Option 1: Update photos JSONB array in user_plants
-      // const { data: plantData } = await supabase
-      //   .from('user_plants')
-      //   .select('photos')
-      //   .eq('id', plantId)
-      //   .single();
-      // 
-      // const existingPhotos = plantData?.photos || [];
-      // const newNote = {
-      //   type: 'note',
-      //   notes: noteText,
-      //   taken_at: new Date().toISOString(),
-      // };
-      // 
-      // await supabase
-      //   .from('user_plants')
-      //   .update({ photos: [...existingPhotos, newNote] })
-      //   .eq('id', plantId);
-      //
-      // ============================================
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) {
+        throw new Error('Not authenticated');
+      }
 
-      // Simulate save delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { error } = await supabase
+        .from('user_plants')
+        .update({ notes: noteText.trim() })
+        .eq('id', plantId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw error;
+      }
 
       Alert.alert(
         'Note Saved!',
@@ -130,6 +127,9 @@ export default function NotesScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {isLoading && (
+            <Text style={{ textAlign: 'center', padding: 12 }}>Loading note...</Text>
+          )}
           {/* Header with Back Button */}
           <View style={styles.header}>
             <TouchableOpacity
