@@ -40,9 +40,9 @@ type TabName = 'Home' | 'Schedule' | 'Plants' | 'Profile';
 function BottomNav({ activeTab, onTabPress }: { activeTab: TabName; onTabPress: (tab: TabName) => void }) {
   const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }[] = [
     { name: 'Home', icon: 'home', iconOutline: 'home-outline' },
-    { name: 'Schedule', icon: 'calendar', iconOutline: 'calendar-outline' },
+    // { name: 'Schedule', icon: 'calendar', iconOutline: 'calendar-outline' },
     { name: 'Plants', icon: 'leaf', iconOutline: 'leaf-outline' },
-    { name: 'Profile', icon: 'person-circle', iconOutline: 'person-circle-outline' },
+    // { name: 'Profile', icon: 'person-circle', iconOutline: 'person-circle-outline' },
   ];
 
   return (
