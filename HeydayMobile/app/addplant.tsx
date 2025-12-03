@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -108,13 +109,10 @@ export default function AddPlantScreen() {
       const fileName = `${Date.now()}.${ext}`;
       const filePath = `plant-images/${fileName}`;
 
-      // Create form data for upload
-      const formData = new FormData();
-      formData.append('file', {
-        uri,
-        type: `image/${ext}`,
-        name: fileName,
-      } as any);
+      // Fetch the file as a blob (required for Supabase upload in RN/Expo)
+      const response = await fetch(uri);
+      const fileBlob = await response.blob();
+      const contentType = response.headers.get('content-type') || `image/${ext}`;
 
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -125,7 +123,8 @@ export default function AddPlantScreen() {
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('plant-images')
-        .upload(filePath, formData, {
+        .upload(filePath, fileBlob, {
+          contentType,
           cacheControl: '3600',
           upsert: false,
         });
@@ -164,10 +163,14 @@ export default function AddPlantScreen() {
       Alert.alert('Invalid Input', 'Please enter a valid watering schedule (e.g., 1.5 for 1.5 waters per day).');
       return;
     }
+    const wateringIntervalDays = wateringNum > 0 ? Math.max(1, Math.round(1 / wateringNum)) : null;
+    const today = new Date();
+    const nextWaterAt =
+      typeof wateringIntervalDays === 'number'
+        ? computeNextWaterDateString(today, wateringIntervalDays)
+        : null;
 
     setSubmitting(true);
-    const ADD_URL = "https://8c33a40a6c4f.ngrok-free.app/upload/add/";
-
     try {
       // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
@@ -192,60 +195,46 @@ export default function AddPlantScreen() {
           Alert.alert('Warning', 'Image upload failed, but plant will still be saved.');
         }
       }
-
-      // Insert plant into database
+      // Alert.alert("Plant Added!")
+      // Insert plant into user_plants (matches Supabase schema)
       const { data, error } = await supabase
         .from('user_plants')
         .insert([
           {
             user_id: user.id,
-            species: species.trim(),
-            age: age.trim(),
-            nickname: nickname.trim() || null,
-            watering_schedule: wateringNum,
+            plant_id: null,
+            floorplan_id: null,
+            nickname: nickname.trim() || species.trim() || null,
             notes: notes.trim() || null,
-            image_url: imageUrl,
+            started_at: today.toISOString().split('T')[0],
+            watering_frequency_days: wateringIntervalDays,
+            last_watered_at: null,
+            next_water_at: nextWaterAt,
+            photos: imageUrl
+              ? [
+                  {
+                    image_url: imageUrl,
+                    taken_at: today.toISOString(),
+                    notes: null,
+                  },
+                ]
+              : [],
           },
         ])
         .select()
         .single();
-      
-        // Insert plant into user_plants (schema-compatible)
-      // const { data, error } = await supabase
-      // .from('user_plants')
-      // .insert([
-      //   {
-      //     user_id: user.id,
-      //     plant_id: null, // link to catalog later if you want
-      //     floorplan_id: floorplanId, // REQUIRED by your schema
-      //     nickname: nickname.trim() || null,
-      //     notes: notes.trim() || null,
-      //     watering_frequency_days: intervalDays,
-      //     started_at: new Date().toISOString().split('T')[0],
-      //     // store image in `photos` jsonb if you want
-      //     photos: imageUrl
-      //       ? [
-      //           {
-      //             image_url: imageUrl,
-      //             taken_at: new Date().toISOString(),
-      //             notes: null,
-      //           },
-      //         ]
-      //       : [],
-      //   },
-      // ])
-      // .select()
-      // .single();
 
 
       if (error) {
         throw error;
       }
 
-      const notificationId = await  scheduleRepeatingWaterReminderForPlant(
+      const reminderInterval =
+        typeof wateringIntervalDays === 'number' ? wateringIntervalDays : 7;
+      await scheduleRepeatingWaterReminderForPlant(
         data.id,
-        nickname.trim() || null,
-        data.watering_frequency_days
+        nickname.trim() || species.trim() || null,
+        reminderInterval
       );
 
       Alert.alert(
@@ -279,6 +268,7 @@ export default function AddPlantScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Add New Plant</Text>
@@ -353,6 +343,9 @@ export default function AddPlantScreen() {
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={Keyboard.dismiss}
               />
             </View>
 

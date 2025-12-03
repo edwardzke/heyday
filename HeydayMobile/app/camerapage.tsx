@@ -11,10 +11,10 @@ export default function CameraPage() {
   const [loading, setLoading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  const BACKEND_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/classify/";
+  const BACKEND_URL = "https://20ba0e12e38f.ngrok-free.app/upload/classify/";
 
-  const CLASSIFY_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/classify/";
-  const UPLOAD_URL = "https://imposingly-lighter-marylee.ngrok-free.dev/upload/";
+  const CLASSIFY_URL = "https://20ba0e12e38f.ngrok-free.app/upload/classify/";
+  const UPLOAD_URL = "https://20ba0e12e38f.ngrok-free.app/upload/";
 
   useEffect(() => {
     (async () => {

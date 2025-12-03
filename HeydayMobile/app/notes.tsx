@@ -6,6 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
   Platform,
   Alert,
 } from 'react-native';
@@ -124,57 +126,65 @@ export default function NotesScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.dark} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Content */}
-        <View style={styles.content}>
-          {/* Title and Date */}
-          <View style={styles.titleSection}>
-            <Text style={styles.title}>Note</Text>
-            <Text style={styles.date}>{currentDate}</Text>
-            {plantName && (
-              <Text style={styles.plantLabel}>for {plantName}</Text>
-            )}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header with Back Button */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={24} color={colors.dark} />
+            </TouchableOpacity>
           </View>
 
-          {/* Note Input */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Write your progress note here..."
-              placeholderTextColor={colors.dark + '60'}
-              value={noteText}
-              onChangeText={setNoteText}
-              multiline
-              textAlignVertical="top"
-              autoFocus
-            />
-          </View>
-        </View>
+          {/* Content */}
+          <View style={styles.content}>
+            {/* Title and Date */}
+            <View style={styles.titleSection}>
+              <Text style={styles.title}>Note</Text>
+              <Text style={styles.date}>{currentDate}</Text>
+              {plantName && (
+                <Text style={styles.plantLabel}>for {plantName}</Text>
+              )}
+            </View>
 
-        {/* Save Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-            onPress={handleSaveNote}
-            activeOpacity={0.8}
-            disabled={isSaving}
-          >
-            <Ionicons name="add" size={20} color={colors.background} />
-            <Text style={styles.saveButtonText}>
-              {isSaving ? 'Saving...' : 'Save Note'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Note Input */}
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Write your progress note here..."
+                placeholderTextColor={colors.dark + '60'}
+                value={noteText}
+                onChangeText={setNoteText}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+                blurOnSubmit
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+              />
+            </View>
+          </View>
+
+          {/* Save Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={handleSaveNote}
+              activeOpacity={0.8}
+              disabled={isSaving}
+            >
+              <Ionicons name="add" size={20} color={colors.background} />
+              <Text style={styles.saveButtonText}>
+                {isSaving ? 'Saving...' : 'Save Note'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -187,6 +197,9 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   
   // Header
@@ -284,4 +297,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-
