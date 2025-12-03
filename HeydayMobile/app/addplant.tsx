@@ -19,6 +19,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
 export default function AddPlantScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -102,43 +104,45 @@ export default function AddPlantScreen() {
     );
   };
 
-  const uploadImageToSupabase = async (uri: string): Promise<string | null> => {
+  const uploadImage = async (uri: string): Promise<string | null> => {
     try {
-      // Get the file extension
-      const ext = uri.split('.').pop() || 'jpg';
+      const ext = (uri.split('.').pop() || 'jpg').toLowerCase();
       const fileName = `${Date.now()}.${ext}`;
-      const filePath = `plant-images/${fileName}`;
+      const contentType =
+        ext === 'png' ? 'image/png' :
+        ext === 'heic' ? 'image/heic' :
+        'image/jpeg';
 
-      // Fetch the file as a blob (required for Supabase upload in RN/Expo)
-      const response = await fetch(uri);
-      const fileBlob = await response.blob();
-      const contentType = response.headers.get('content-type') || `image/${ext}`;
+      const formData = new FormData();
+      formData.append('photo', {
+        uri,
+        type: contentType,
+        name: fileName,
+      } as any);
 
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Not authenticated');
+      const response = await fetch(`${BACKEND_URL}/upload/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        // ignore parse errors
       }
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('plant-images')
-        .upload(filePath, fileBlob, {
-          contentType,
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) {
-        throw error;
+      if (!response.ok || (data && data.error)) {
+        const message = data?.error || `Upload failed: ${response.status}`;
+        throw new Error(message);
       }
 
-      // Get the public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('plant-images')
-        .getPublicUrl(filePath);
+      const url = data?.file_url || data?.url || null;
+      if (!url) {
+        throw new Error('Upload succeeded but no file URL returned');
+      }
 
-      return publicUrlData.publicUrl;
+      return url;
     } catch (error) {
       console.error('Error uploading image:', error);
       return null;
@@ -190,7 +194,9 @@ export default function AddPlantScreen() {
       // Upload image if present
       let imageUrl = null;
       if (imageUri) {
-        imageUrl = await uploadImageToSupabase(imageUri);
+        imageUrl = await uploadImage(imageUri);
+        // Alert.alert('Uploading Image', 'Your plant image is being uploaded.');
+        // Alert.alert('Image Upload', imageUrl ? 'Image uploaded successfully!' : 'Image upload failed.');
         if (!imageUrl) {
           Alert.alert('Warning', 'Image upload failed, but plant will still be saved.');
         }

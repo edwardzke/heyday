@@ -35,6 +35,13 @@ OPENWEATHER_DEFAULT_LOCATION = os.environ.get(
 )
 OPENWEATHER_UNITS = os.environ.get("OPENWEATHER_UNITS", "imperial")
 
+# AWS / S3 (support both old/new env names)
+AWS_S3_BUCKET = os.environ.get("AWS_S3_BUCKET") or os.environ.get("AWS_STORAGE_BUCKET_NAME") or ""
+AWS_S3_REGION = os.environ.get("AWS_S3_REGION") or os.environ.get("AWS_S3_REGION_NAME") or "us-east-2"
+AWS_S3_CUSTOM_DOMAIN = os.environ.get("AWS_S3_CUSTOM_DOMAIN", "")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 DEBUG = True
@@ -49,6 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "storages",
     "apps.core",
     "apps.scans",
     "uploads"
@@ -114,6 +122,16 @@ if (FRONTEND_DIST_DIR / "assets").exists():
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
+
+# Configure S3 as default storage if credentials + bucket are present
+if AWS_S3_BUCKET and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_STORAGE_BUCKET_NAME = AWS_S3_BUCKET
+    AWS_S3_REGION_NAME = AWS_S3_REGION
+    AWS_S3_ADDRESSING_STYLE = "path"
+    AWS_QUERYSTRING_AUTH = False
+    if AWS_S3_CUSTOM_DOMAIN:
+        AWS_S3_CUSTOM_DOMAIN = AWS_S3_CUSTOM_DOMAIN
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
