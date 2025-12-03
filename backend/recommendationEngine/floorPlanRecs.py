@@ -85,7 +85,9 @@ def _build_prompt(user: Dict[str, Any], roomplan_json: Dict[str, Any], window_or
         f"RoomPlan summary: {roomplan_summary}. "
         f"User location: {user_location}. Experience: {experience}. Style: {style}. "
         f"Constraints: {toxicity_pref}; {maintenance}. "
-        "Return JSON keyed by room with fields: plants (name, light need, watering), placement, and reasoning. "
+        "Return JSON keyed by room with fields: plants (name, scientific_name, light_need, watering), placement, and reasoning. "
+        "IMPORTANT: For each plant, provide both 'name' (common name) and 'scientific_name' (botanical name in Latin). "
+        "The scientific name is critical for accurate plant database lookups. "
         "Be concise and stay within practical plant options available in common stores."
     )
 
@@ -176,8 +178,74 @@ def get_floor_plan_recommendations(
                     for plant in plants:
                         if isinstance(plant, dict) and "name" in plant:
                             plant_name = plant["name"]
-                            perenual_data = perenual_service.enrich_plant_with_perenual(plant_name)
+                            scientific_name = plant.get("scientific_name")
+
+                            # Prefer scientific name for Perenual search (more accurate)
+                            search_name = scientific_name if scientific_name else plant_name
+                            
+                            if scientific_name:
+                                print(f"🔬 Searching Perenual by scientific name: {scientific_name}")
+                            else:
+                                print(f"⚠️ No scientific name provided, using common name: {plant_name}")
+
+                            perenual_data = perenual_service.enrich_plant_with_perenual(search_name)
+                            print(f"🌱 Perenual enrichment for '{plant_name}':")
+                            print(f"   - Common name: {perenual_data.get('common_name')}")
+                            print(f"   - Scientific name: {perenual_data.get('scientific_name')}")
+                            print(f"   - Image URL: {perenual_data.get('default_image_url')}")
+                            print(f"   - Error: {perenual_data.get('error')}")
+
+                            # Add perenual_data to plant object (for mobile backward compat)
                             plant["perenual_data"] = perenual_data
+
+                            # STEP 1: Search for existing plant in Supabase by scientific name
+                            plant_id = None
+                            scientific_name = perenual_data.get('scientific_name')
+                            common_name = perenual_data.get('common_name')
+
+                            if scientific_name:
+                                result = supabase.table('plants').select('id, common_name').ilike('scientific_name', f'%{scientific_name}%').limit(1).execute()
+                                if result.data and len(result.data) > 0:
+                                    plant_id = result.data[0]['id']
+                                    print(f"   🔄 Reusing existing plant: {result.data[0]['common_name']} ({plant_id})")
+
+                            # STEP 2: If not found, create new plant in database
+                            if not plant_id and perenual_data.get('perenual_id'):
+                                try:
+                                    # Extract scientific_name from list if needed
+                                    sci_name_for_db = scientific_name
+                                    if isinstance(sci_name_for_db, list) and sci_name_for_db:
+                                        sci_name_for_db = sci_name_for_db[0]
+                                    
+                                    new_plant = supabase.table('plants').insert({
+                                        'perenual_id': perenual_data.get('perenual_id'),
+                                        'common_name': common_name,
+                                        'scientific_name': sci_name_for_db,
+                                        'watering_general_benchmark': perenual_data.get('watering_general_benchmark'),
+                                        'watering_interval_days': perenual_data.get('watering_interval_days'),
+                                        'sunlight': perenual_data.get('sunlight'),
+                                        'maintenance_category': perenual_data.get('maintenance_category'),
+                                        'poison_human': perenual_data.get('poison_human'),
+                                        'poison_pets': perenual_data.get('poison_pets'),
+                                        'default_image_url': perenual_data.get('default_image_url'),
+                                        'care_notes': perenual_data.get('care_notes'),
+                                    }).execute()
+
+                                    if new_plant.data and len(new_plant.data) > 0:
+                                        plant_id = new_plant.data[0]['id']
+                                        print(f"   ✅ Created new plant: {common_name} ({plant_id})")
+                                except Exception as e:
+                                    # If insert fails (duplicate), try to fetch the existing one
+                                    if 'duplicate' in str(e).lower() or 'unique' in str(e).lower():
+                                        result = supabase.table('plants').select('id').eq('perenual_id', perenual_data.get('perenual_id')).limit(1).execute()
+                                        if result.data and len(result.data) > 0:
+                                            plant_id = result.data[0]['id']
+                                            print(f"   🔄 Plant already exists: ({plant_id})")
+                                    else:
+                                        print(f"   ⚠️ Failed to create plant: {e}")
+
+                            # STEP 3: Add plant_id to the plant object so mobile can use it
+                            plant["plant_id"] = plant_id
 
     # Build structured response
     roomplan_summary = _summarize_roomplan(plan, window_orientation)

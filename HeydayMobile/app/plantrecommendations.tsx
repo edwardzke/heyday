@@ -155,6 +155,7 @@ export default function PlantRecommendationsScreen() {
         .from('plant_recommendations')
         .select(`
           id,
+          plant_id,
           recommended_location,
           status,
           plants (
@@ -172,15 +173,26 @@ export default function PlantRecommendationsScreen() {
 
       if (error) throw error;
 
-      const formattedRecs: RecommendationItem[] = (data || []).map((rec: any) => ({
-        id: rec.id,
-        plant_name: rec.plants?.common_name || rec.recommended_location?.plant_name || 'Unknown Plant',
-        image_url: rec.plants?.default_image_url || rec.recommended_location?.default_image_url || null,
-        maintenance_category: rec.plants?.maintenance_category || rec.recommended_location?.maintenance_category || 'medium',
-        sunlight: rec.plants?.sunlight || rec.recommended_location?.sunlight || 'Average',
-        watering: rec.plants?.watering_general_benchmark || rec.recommended_location?.watering_benchmark || 'Average',
-        is_favorite: false, // Could be stored separately if needed
-      }));
+      console.log('🔍 Raw recommendations data:', JSON.stringify(data, null, 2));
+
+      const formattedRecs: RecommendationItem[] = (data || []).map((rec: any) => {
+        console.log(`🔍 Processing rec ${rec.id}:`, {
+          plant_id: rec.plant_id,
+          has_plants_join: !!rec.plants,
+          plants_data: rec.plants,
+          recommended_location: rec.recommended_location
+        });
+
+        return {
+          id: rec.id,
+          plant_name: rec.plants?.common_name || rec.recommended_location?.plant_name || 'Unknown Plant',
+          image_url: rec.plants?.default_image_url || rec.recommended_location?.default_image_url || null,
+          maintenance_category: rec.plants?.maintenance_category || rec.recommended_location?.maintenance_category || 'medium',
+          sunlight: rec.plants?.sunlight || rec.recommended_location?.sunlight || 'Average',
+          watering: rec.plants?.watering_general_benchmark || rec.recommended_location?.watering_benchmark || 'Average',
+          is_favorite: false,
+        };
+      });
 
       setRecommendations(formattedRecs);
     } catch (error) {

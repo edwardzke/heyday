@@ -17,18 +17,30 @@ interface PlantRecommendationWithData extends SupabasePlantRecommendation {
     room: string;
     placement?: string;
     plant_name: string;
-    light_need?: string;
-    watering?: string;
+    // Perenual structured fields:
+    sunlight?: string;
+    watering_benchmark?: string;
+    watering_interval_days?: number;
+    maintenance_category?: string;
+    default_image_url?: string;
+    // Legacy fields (may still exist in old data):
     common_name?: string;
     scientific_name?: string;
-    watering_general_benchmark?: string;
-    watering_interval_days?: number;
-    sunlight?: string;
-    maintenance_category?: string;
     poison_human?: boolean;
     poison_pets?: boolean;
-    default_image_url?: string;
-    care_notes?: string;
+  };
+  // Add plants join data:
+  plants?: {
+    id: string;
+    common_name: string;
+    scientific_name: string;
+    default_image_url: string;
+    maintenance_category: string;
+    sunlight: string;
+    watering_general_benchmark: string;
+    watering_interval_days: number;
+    poison_human: boolean;
+    poison_pets: boolean;
   };
 }
 
@@ -51,7 +63,21 @@ export default function RecommendationsScreen() {
     try {
       const { data, error } = await supabase
         .from("plant_recommendations")
-        .select("*")
+        .select(`
+          *,
+          plants (
+            id,
+            common_name,
+            scientific_name,
+            default_image_url,
+            maintenance_category,
+            sunlight,
+            watering_general_benchmark,
+            watering_interval_days,
+            poison_human,
+            poison_pets
+          )
+        `)
         .eq("floorplan_id", floorplanId)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -173,9 +199,9 @@ export default function RecommendationsScreen() {
             const loc = rec.recommended_location;
             return (
               <View key={rec.id} style={styles.plantCard}>
-                {loc.default_image_url && (
+                {(rec.plants?.default_image_url || loc.default_image_url) && (
                   <Image
-                    source={{ uri: loc.default_image_url }}
+                    source={{ uri: rec.plants?.default_image_url || loc.default_image_url }}
                     style={styles.plantImage}
                     resizeMode="cover"
                   />
@@ -183,34 +209,40 @@ export default function RecommendationsScreen() {
 
                 <View style={styles.plantInfo}>
                   <Text style={styles.plantName}>
-                    {loc.common_name || loc.plant_name}
+                    {rec.plants?.common_name || loc.plant_name}
                   </Text>
-                  {loc.scientific_name && (
-                    <Text style={styles.scientificName}>{loc.scientific_name}</Text>
+                  {(rec.plants?.scientific_name || loc.scientific_name) && (
+                    <Text style={styles.scientificName}>
+                      {rec.plants?.scientific_name || loc.scientific_name}
+                    </Text>
                   )}
 
                   {loc.placement && (
                     <Text style={styles.detailText}>📍 {loc.placement}</Text>
                   )}
-                  {loc.light_need && (
-                    <Text style={styles.detailText}>☀️ {loc.light_need}</Text>
-                  )}
-                  {loc.watering && (
-                    <Text style={styles.detailText}>💧 {loc.watering}</Text>
-                  )}
-                  {loc.maintenance_category && (
+                  {(rec.plants?.sunlight || loc.sunlight) && (
                     <Text style={styles.detailText}>
-                      🛠️ {loc.maintenance_category} maintenance
+                      ☀️ {rec.plants?.sunlight || loc.sunlight}
+                    </Text>
+                  )}
+                  {(rec.plants?.watering_general_benchmark || loc.watering_benchmark) && (
+                    <Text style={styles.detailText}>
+                      💧 {rec.plants?.watering_general_benchmark || loc.watering_benchmark}
+                    </Text>
+                  )}
+                  {(rec.plants?.maintenance_category || loc.maintenance_category) && (
+                    <Text style={styles.detailText}>
+                      🛠️ {rec.plants?.maintenance_category || loc.maintenance_category} maintenance
                     </Text>
                   )}
 
-                  {(loc.poison_human || loc.poison_pets) && (
+                  {(rec.plants?.poison_human || rec.plants?.poison_pets || loc.poison_human || loc.poison_pets) && (
                     <View style={styles.warningBox}>
                       <Text style={styles.warningText}>
                         ⚠️{" "}
-                        {loc.poison_human && loc.poison_pets
+                        {(rec.plants?.poison_human || loc.poison_human) && (rec.plants?.poison_pets || loc.poison_pets)
                           ? "Toxic to humans and pets"
-                          : loc.poison_human
+                          : (rec.plants?.poison_human || loc.poison_human)
                           ? "Toxic to humans"
                           : "Toxic to pets"}
                       </Text>
