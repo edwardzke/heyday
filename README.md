@@ -1,4 +1,4 @@
-## Heyday Monorepo
+[Frame 1.pdf](https://github.com/user-attachments/files/24020111/Frame.1.pdf)## Heyday Monorepo
 
 Production scaffold hosting the Heyday experience across Django, React, Expo, and supporting services.
 
@@ -69,3 +69,6 @@ Follow these after prebuild to integrate the AR/RoomPlan component:
 - `backend/recommendationEngine/floorPlanRecs.py` ingests RoomPlan JSON (sample at `backend/recommendationEngine/Room.json`), merges user context from Supabase, and calls Gemini (`gemini-2.5-pro`) for per-room plant placements.
 - Pass an optional window orientation char (`N/S/E/W`) to `get_floor_plan_recommendations` (or `_summarize_roomplan`) so the summary tags windows with cardinal exposure to make light-aware prompts.
 - Output target: concise JSON keyed by room with plant picks, placement, and care notes; add validation/persistence as you harden the flow.
+
+[Frame 1.pdf](https://github.com/user-attachments/files/24020114/Frame.1.pdf)
+
